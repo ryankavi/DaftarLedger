@@ -29,9 +29,9 @@ docker exec -it pg-container psql -U postgres
 ```
 ***Access the database***
 ```bash
-\c gopgtest # database name
-\dt # display tables
-\d \<accounts\> # display accounts table
+\c gopgtest     # database name
+\dt             # display tables
+\d <accounts>   # display accounts table
 ```
 
 **If the container already exists:** `docker start pg-container`
