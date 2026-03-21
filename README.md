@@ -22,6 +22,11 @@ docker exec pg-container createdb -U postgres gopgtest
 go run ./main.go
 ```
 
+**Connect to the database:**
+```bash
+docker exec -it pg-container psql -U postgres
+```
+
 **If the container already exists:** `docker start pg-container`
 
 **Reset database (remove container and volume):** `docker rm -f pg-container` then `docker volume rm payclone_pgdata`
