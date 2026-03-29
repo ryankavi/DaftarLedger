@@ -34,7 +34,7 @@ func runMigrations(database *sql.DB) error {
 		return fmt.Errorf("creating migrate instance: %w", err)
 	}
 
-	// m.Up() tells golang-migrate to execute the sql questions in /internal/migrations
+	// m.Up() tells golang-migrate to execute ALL sql queries in /internal/migrations
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		return fmt.Errorf("running migrations: %w", err)
 	}
