@@ -37,3 +37,11 @@ docker exec -it pg-container psql -U postgres
 **If the container already exists:** `docker start pg-container`
 
 **Reset database (remove container and volume):** `docker rm -f pg-container` then `docker volume rm payclone_pgdata`
+
+## Start from scratch
+
+**Remove the postgres container (and volume):**
+
+```bash
+docker rm -f pg-container && docker volume rm payclone_pgdata
+```

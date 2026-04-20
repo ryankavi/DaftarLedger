@@ -9,9 +9,9 @@ CREATE TABLE IF NOT EXISTS entries (
     transaction_id UUID NOT NULL,
     account_id     UUID NOT NULL REFERENCES accounts(account_id),
     amount         BIGINT NOT NULL,
-    currency       CHAR(3) NOT NULL,
+    currency       VARCHAR(3) NOT NULL,
     direction      entry_direction NOT NULL,
-    created_at     TIMESTAMPTZ DEFAULT NOW(),
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     effective_at   TIMESTAMPTZ NOT NULL,
     memo           TEXT
 );

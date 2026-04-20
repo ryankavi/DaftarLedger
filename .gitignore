@@ -18,3 +18,6 @@ payclone
 # Go workspace (if you ever use one)
 go.work
 go.work.sum
+
+.claude/
+.vscode/
