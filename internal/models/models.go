@@ -61,6 +61,6 @@ type Transaction struct {
 	TransactionType        string
 	TransactionDescription *string
 	TransactionStatus      TransactionStatus
-	PostedAt               time.Time
+	PostedAt               *time.Time
 	CreatedAt              time.Time
 }

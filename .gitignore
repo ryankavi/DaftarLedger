@@ -19,5 +19,6 @@ payclone
 go.work
 go.work.sum
 
+.todo
 .claude/
 .vscode/

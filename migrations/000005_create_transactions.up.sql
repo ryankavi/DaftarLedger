@@ -15,6 +15,6 @@ CREATE TABLE IF NOT EXISTS transactions (
     transaction_type TEXT NOT NULL,
     transaction_description TEXT,
     transaction_status transaction_status NOT NULL,
-    posted_at TIMESTAMPTZ NOT NULL,
+    posted_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 )
