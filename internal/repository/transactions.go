@@ -82,44 +82,6 @@ func GetTransaction(ctx context.Context, database *sql.DB, transactionID string)
 	return t, nil
 }
 
-func GetTransactionEntries(ctx context.Context, database *sql.DB, transactionID string) ([]models.Entry, error) {
-	const q = `
-		SELECT entry_id, transaction_id, account_id, amount, currency, direction, memo, created_at, effective_at
-		FROM entries
-		WHERE transaction_id = $1
-		ORDER BY direction DESC
-	`
-
-	rows, err := database.QueryContext(ctx, q, transactionID)
-	if err != nil {
-		return nil, fmt.Errorf("get transaction entries: %w", err)
-	}
-	defer rows.Close()
-
-	var entries []models.Entry
-	for rows.Next() {
-		var e models.Entry
-		if err := rows.Scan(
-			&e.EntryID,
-			&e.TransactionID,
-			&e.AccountID,
-			&e.Amount,
-			&e.Currency,
-			&e.Direction,
-			&e.Memo,
-			&e.CreatedAt,
-			&e.EffectiveAt,
-		); err != nil {
-			return nil, fmt.Errorf("scan entry: %w", err)
-		}
-		entries = append(entries, e)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate entries from transaction id: %w", err)
-	}
-	return entries, nil
-}
-
 func GetTransactionByIdempotencyKey(ctx context.Context, database *sql.DB, key string) (models.Transaction, error) {
 	const q = `
 		SELECT transaction_id, external_id, idempotency_key, transaction_type, transaction_description, transaction_status, posted_at, created_at
