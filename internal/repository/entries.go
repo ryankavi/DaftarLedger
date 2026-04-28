@@ -2,14 +2,13 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"time"
 
 	"github.com/ryankavi/payclone/internal/models"
 )
 
-func CreateEntry(ctx context.Context, database *sql.DB, transactionID string, accountID string, amount int64, currency string, direction models.EntryDirection, memo *string, effectiveAt time.Time) (models.Entry, error) {
+func CreateEntry(ctx context.Context, db DBTX, transactionID string, accountID string, amount int64, currency string, direction models.EntryDirection, memo *string, effectiveAt time.Time) (models.Entry, error) {
 	const q = `
 		INSERT INTO entries (transaction_id, account_id, amount, currency, direction, memo, effective_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -17,7 +16,7 @@ func CreateEntry(ctx context.Context, database *sql.DB, transactionID string, ac
 	`
 
 	var e models.Entry
-	err := database.QueryRowContext(ctx, q, transactionID, accountID, amount, currency, direction, memo, effectiveAt).Scan(
+	err := db.QueryRowContext(ctx, q, transactionID, accountID, amount, currency, direction, memo, effectiveAt).Scan(
 		&e.EntryID,
 		&e.TransactionID,
 		&e.AccountID,
@@ -34,7 +33,7 @@ func CreateEntry(ctx context.Context, database *sql.DB, transactionID string, ac
 	return e, nil
 }
 
-func GetEntry(ctx context.Context, database *sql.DB, entryID string) (models.Entry, error) {
+func GetEntry(ctx context.Context, db DBTX, entryID string) (models.Entry, error) {
 	const q = `
 		SELECT entry_id, transaction_id, account_id, amount, currency, direction, memo, created_at, effective_at
 		FROM entries
@@ -42,7 +41,7 @@ func GetEntry(ctx context.Context, database *sql.DB, entryID string) (models.Ent
 	`
 
 	var e models.Entry
-	err := database.QueryRowContext(ctx, q, entryID).Scan(
+	err := db.QueryRowContext(ctx, q, entryID).Scan(
 		&e.EntryID,
 		&e.TransactionID,
 		&e.AccountID,
@@ -59,7 +58,7 @@ func GetEntry(ctx context.Context, database *sql.DB, entryID string) (models.Ent
 	return e, nil
 }
 
-func GetEntriesByTransactionID(ctx context.Context, database *sql.DB, transactionID string) ([]models.Entry, error) {
+func GetEntriesByTransactionID(ctx context.Context, db DBTX, transactionID string) ([]models.Entry, error) {
 	const q = `
 		SELECT entry_id, transaction_id, account_id, amount, currency, direction, memo, created_at, effective_at
 		FROM entries
@@ -67,7 +66,7 @@ func GetEntriesByTransactionID(ctx context.Context, database *sql.DB, transactio
 		ORDER BY direction DESC
 	`
 
-	rows, err := database.QueryContext(ctx, q, transactionID)
+	rows, err := db.QueryContext(ctx, q, transactionID)
 	if err != nil {
 		return nil, fmt.Errorf("get transaction entries: %w", err)
 	}
@@ -97,7 +96,7 @@ func GetEntriesByTransactionID(ctx context.Context, database *sql.DB, transactio
 	return entries, nil
 }
 
-func GetEntriesByAccountID(ctx context.Context, database *sql.DB, accountID string, limit int, offset int) ([]models.Entry, error) {
+func GetEntriesByAccountID(ctx context.Context, db DBTX, accountID string, limit int, offset int) ([]models.Entry, error) {
 	const q = `
 		SELECT entry_id, transaction_id, account_id, amount, currency, direction, memo, created_at, effective_at
 		FROM entries
@@ -106,7 +105,7 @@ func GetEntriesByAccountID(ctx context.Context, database *sql.DB, accountID stri
 		LIMIT $2 OFFSET $3
 	`
 
-	rows, err := database.QueryContext(ctx, q, accountID, limit, offset)
+	rows, err := db.QueryContext(ctx, q, accountID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("get entries by account id: %w", err)
 	}
@@ -140,7 +139,7 @@ func GetEntriesByAccountID(ctx context.Context, database *sql.DB, accountID stri
 // Positive = net inflow on debit side; negative = net inflow on credit side.
 // Caller interprets sign per account type's normal balance.
 // If asOf is non-nil, only entries with effective_at <= asOf are included.
-func GetAccountBalance(ctx context.Context, database *sql.DB, accountID string, asOf *time.Time) (int64, error) {
+func GetAccountBalance(ctx context.Context, db DBTX, accountID string, asOf *time.Time) (int64, error) {
 	const q = `
 		SELECT COALESCE(SUM(CASE direction WHEN 'DEBIT' THEN amount ELSE -amount END), 0)
 		FROM entries
@@ -149,7 +148,7 @@ func GetAccountBalance(ctx context.Context, database *sql.DB, accountID string, 
 	`
 
 	var balance int64
-	if err := database.QueryRowContext(ctx, q, accountID, asOf).Scan(&balance); err != nil {
+	if err := db.QueryRowContext(ctx, q, accountID, asOf).Scan(&balance); err != nil {
 		return 0, fmt.Errorf("get account balance: %w", err)
 	}
 	return balance, nil

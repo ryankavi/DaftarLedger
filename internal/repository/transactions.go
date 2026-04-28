@@ -2,13 +2,12 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/ryankavi/payclone/internal/models"
 )
 
-func CreateTransaction(ctx context.Context, database *sql.DB, externalID *string, idempotencyKey string, transactionType string, description *string) (models.Transaction, error) {
+func CreateTransaction(ctx context.Context, db DBTX, externalID *string, idempotencyKey string, transactionType string, description *string) (models.Transaction, error) {
 	const q = `
 		INSERT INTO transactions (external_id, idempotency_key, transaction_type, transaction_description, transaction_status)
 		VALUES ($1, $2, $3, $4, $5)
@@ -16,7 +15,7 @@ func CreateTransaction(ctx context.Context, database *sql.DB, externalID *string
 	`
 
 	var t models.Transaction
-	err := database.QueryRowContext(ctx, q, externalID, idempotencyKey, transactionType, description, models.StatusPending).Scan(
+	err := db.QueryRowContext(ctx, q, externalID, idempotencyKey, transactionType, description, models.StatusPending).Scan(
 		&t.TransactionID,
 		&t.ExternalID,
 		&t.IdempotencyKey,
@@ -32,7 +31,7 @@ func CreateTransaction(ctx context.Context, database *sql.DB, externalID *string
 	return t, nil
 }
 
-func UpdateTransactionStatus(ctx context.Context, database *sql.DB, transactionID string, newStatus models.TransactionStatus) (models.Transaction, error) {
+func UpdateTransactionStatus(ctx context.Context, db DBTX, transactionID string, newStatus models.TransactionStatus) (models.Transaction, error) {
 	const q = `
 		UPDATE transactions
 		SET transaction_status = $2,
@@ -42,7 +41,7 @@ func UpdateTransactionStatus(ctx context.Context, database *sql.DB, transactionI
 	`
 
 	var t models.Transaction
-	err := database.QueryRowContext(ctx, q, transactionID, newStatus).Scan(
+	err := db.QueryRowContext(ctx, q, transactionID, newStatus).Scan(
 		&t.TransactionID,
 		&t.ExternalID,
 		&t.IdempotencyKey,
@@ -58,7 +57,7 @@ func UpdateTransactionStatus(ctx context.Context, database *sql.DB, transactionI
 	return t, nil
 }
 
-func GetTransaction(ctx context.Context, database *sql.DB, transactionID string) (models.Transaction, error) {
+func GetTransaction(ctx context.Context, db DBTX, transactionID string) (models.Transaction, error) {
 	const q = `
 		SELECT transaction_id, external_id, idempotency_key, transaction_type, transaction_description, transaction_status, posted_at, created_at
 		FROM transactions
@@ -66,7 +65,7 @@ func GetTransaction(ctx context.Context, database *sql.DB, transactionID string)
 	`
 
 	var t models.Transaction
-	err := database.QueryRowContext(ctx, q, transactionID).Scan(
+	err := db.QueryRowContext(ctx, q, transactionID).Scan(
 		&t.TransactionID,
 		&t.ExternalID,
 		&t.IdempotencyKey,
@@ -82,7 +81,7 @@ func GetTransaction(ctx context.Context, database *sql.DB, transactionID string)
 	return t, nil
 }
 
-func GetTransactionByIdempotencyKey(ctx context.Context, database *sql.DB, key string) (models.Transaction, error) {
+func GetTransactionByIdempotencyKey(ctx context.Context, db DBTX, key string) (models.Transaction, error) {
 	const q = `
 		SELECT transaction_id, external_id, idempotency_key, transaction_type, transaction_description, transaction_status, posted_at, created_at
 		FROM transactions
@@ -90,7 +89,7 @@ func GetTransactionByIdempotencyKey(ctx context.Context, database *sql.DB, key s
 	`
 
 	var t models.Transaction
-	err := database.QueryRowContext(ctx, q, key).Scan(
+	err := db.QueryRowContext(ctx, q, key).Scan(
 		&t.TransactionID,
 		&t.ExternalID,
 		&t.IdempotencyKey,
@@ -106,14 +105,14 @@ func GetTransactionByIdempotencyKey(ctx context.Context, database *sql.DB, key s
 	return t, nil
 }
 
-func GetTransactionByExternalID(ctx context.Context, database *sql.DB, externalID string) ([]models.Transaction, error) {
+func GetTransactionByExternalID(ctx context.Context, db DBTX, externalID string) ([]models.Transaction, error) {
 	const q = `
 		SELECT transaction_id, external_id, idempotency_key, transaction_type, transaction_description, transaction_status, posted_at, created_at
 		FROM transactions
 		WHERE external_id = $1
 	`
 
-	rows, err := database.QueryContext(ctx, q, externalID)
+	rows, err := db.QueryContext(ctx, q, externalID)
 	if err != nil {
 		return nil, fmt.Errorf("get transactions for external id: %w", err)
 	}
