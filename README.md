@@ -45,3 +45,11 @@ docker exec -it pg-container psql -U postgres
 ```bash
 docker rm -f pg-container && docker volume rm payclone_pgdata
 ```
+
+Service features:
+
+1) Canonical ordering: PayClone removes deadlocks in db by removing the possibility of a cycle, via simple lexigraphical order. Both goroutines lock same account first.
+
+2) Idempotency: Every transaction uses a UNIQUE idempotency key to prevent the same transaction being posted to the db.
+
+3) Atomic commits: Use a Tx connection pool for transactions to allow rollback on failed db operations.
