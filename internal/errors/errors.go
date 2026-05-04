@@ -8,4 +8,5 @@ var (
 	ErrAccountNotFound   = errors.New("account not found")
 	ErrSameAccount       = errors.New("from and to accounts must differ")
 	ErrInvalidAmount     = errors.New("amount must be positive")
+	ErrInvalidAccountType = errors.New("invalid account type for this operation")
 )

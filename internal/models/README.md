@@ -41,6 +41,14 @@ No `db` or `json` tags yet. Add them the same commit they're first used:
 │ TREASURY        │ Platform's own cash reserves                    │ Internal only                   │ No — audited, not gated       │
 └─────────────────┴─────────────────────────────────────────────────┴─────────────────────────────────┴───────────────────────────────┘
 
+┌────────────────────────────────────┬──────────────┬───────────────┬─────────────┐
+│            Account type            │ DEBIT effect │ CREDIT effect │ Normal side │                
+├────────────────────────────────────┼──────────────┼───────────────┼─────────────┤
+│ Asset (EXTERNAL, TREASURY)         │ increase     │ decrease      │ DEBIT       │
+├────────────────────────────────────┼──────────────┼───────────────┼─────────────┤
+│ Liability (USER_CASH, FEE_REVENUE) │ decrease     │ increase      │ CREDIT      │
+└────────────────────────────────────┴──────────────┴───────────────┴─────────────┘
+
 Reasons each skips the check:
 
   - EXTERNAL is a synthetic counterparty representing "the rest of the world." It's the source side of every deposit. Treating it as having a finite balance would make deposits fail

@@ -88,6 +88,13 @@ func Transfer(ctx context.Context, database *sql.DB, p TransferParams) (models.T
 	from := accounts[p.FromAccountID]
 	to := accounts[p.ToAccountID]
 
+	// Restrict to peer USER_CASH transfers. Cross-type flows (deposit,
+	// withdrawal, fee, internal rail moves) live in their own service funcs
+	// with their own auth, funds-check, and audit semantics.
+	if from.AccountType != models.AccountUserCash || to.AccountType != models.AccountUserCash {
+		return models.Transaction{}, errx.ErrInvalidAccountType
+	}
+
 	// Confirm matching currency
 	if from.Currency != p.Currency || to.Currency != p.Currency {
 		return models.Transaction{}, errx.ErrCurrencyMismatch
