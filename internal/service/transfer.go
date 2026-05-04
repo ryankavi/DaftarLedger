@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/lib/pq"
 	errx "github.com/ryankavi/payclone/internal/errors"
 	"github.com/ryankavi/payclone/internal/models"
 	"github.com/ryankavi/payclone/internal/repository"
@@ -23,24 +24,6 @@ type TransferParams struct {
 	Description     *string
 }
 
-// needsFundsCheck reports whether the source account type requires a
-// balance check. Rail/platform accounts (EXTERNAL, TREASURY) are unbounded
-// sources by design — checking them would block legitimate flows.
-func needsFundsCheck(t models.AccountType) bool {
-	return t == models.AccountUserCash
-}
-
-// availableBalance translates raw net-debit balance into spendable units
-// by flipping sign for CREDIT-normal account types. USER_CASH is a
-// liability from the platform's POV, so a funded wallet has a negative
-// raw balance.
-func availableBalance(t models.AccountType, raw int64) int64 {
-	if t == models.AccountUserCash {
-		return -raw
-	}
-	return raw
-}
-
 func Transfer(ctx context.Context, database *sql.DB, p TransferParams) (models.Transaction, error) {
 	if p.Amount <= 0 {
 		return models.Transaction{}, errx.ErrInvalidAmount
@@ -49,9 +32,7 @@ func Transfer(ctx context.Context, database *sql.DB, p TransferParams) (models.T
 		return models.Transaction{}, errx.ErrSameAccount
 	}
 
-	// Pre-check: if a prior call with this idempotency_key already committed, return it.
-	// Race window between this read and the INSERT is closed by the UNIQUE constraint on idempotency_key;
-	// a losing concurrent caller sees pq error 23505 and can retry — the retry hits this branch.
+	// If a transaction with this idempotency_key already committed, return it
 	if existing, err := repository.GetTransactionByIdempotencyKey(ctx, database, p.IdempotencyKey); err == nil {
 		return existing, nil
 	} else if !errors.Is(err, sql.ErrNoRows) {
@@ -88,9 +69,7 @@ func Transfer(ctx context.Context, database *sql.DB, p TransferParams) (models.T
 	from := accounts[p.FromAccountID]
 	to := accounts[p.ToAccountID]
 
-	// Restrict to peer USER_CASH transfers. Cross-type flows (deposit,
-	// withdrawal, fee, internal rail moves) live in their own service funcs
-	// with their own auth, funds-check, and audit semantics.
+	// Only USER<->USER cash transfers. Cross-type flows live in their own service funcs.
 	if from.AccountType != models.AccountUserCash || to.AccountType != models.AccountUserCash {
 		return models.Transaction{}, errx.ErrInvalidAccountType
 	}
@@ -113,6 +92,16 @@ func Transfer(ctx context.Context, database *sql.DB, p TransferParams) (models.T
 
 	t, err := repository.CreateTransaction(ctx, tx, nil, p.IdempotencyKey, p.TransactionType, p.Description)
 	if err != nil {
+		// Catch concurrent caller with the same idempotency_key, 23505 is result of UNIQUE violation rejection
+		// Re-fetch via the live *sql.DB (this tx is going to roll back) to see new transaction
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+			existing, ferr := repository.GetTransactionByIdempotencyKey(ctx, database, p.IdempotencyKey)
+			if ferr != nil {
+				return models.Transaction{}, fmt.Errorf("transfer idempotency refetch: %w", ferr)
+			}
+			return existing, nil
+		}
 		return models.Transaction{}, fmt.Errorf("create transaction: %w", err)
 	}
 
