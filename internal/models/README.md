@@ -58,3 +58,7 @@ Reasons each skips the check:
   - FEE_REVENUE can only ever appear as a destination (CREDIT side) of a transaction. It never acts as a source, so the question "does it have enough" never comes up.
   - TREASURY is the platform's own cash. A real system audits it via separate controls (alerts, daily reconciliation) rather than gating live transfers — the platform shouldn't have
   transfers fail because the operations team forgot to top up reserves.
+
+## TODO
+
+- Upgrade EXTERNAL accounts to be per-counterparty split, meaning Bank A gets its own EXTERNAL_A account, Bank B its own EXTERNAL_B, etc.
