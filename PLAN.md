@@ -9,13 +9,14 @@ Fresh-Claude brief. Read `CLAUDE.md` first for repo-wide conventions; this file 
 - `internal/db/` — bootstrap only (`SetUpDB`: ping + run migrations). No queries here.
 - `internal/repository/` — per-entity primitives. Each function takes `ctx context.Context` and `db DBTX` (interface satisfied by both `*sql.DB` and `*sql.Tx`). Files: `users.go`, `accounts.go`, `entries.go`, `transactions.go`, `dbtx.go`. `LockAccount` exists for `SELECT ... FOR UPDATE`.
 - `internal/service/`:
-  - `post.go` — shared engine `post(ctx, db, p, postType)` + 5 thin public wrappers: `Transfer`, `Deposit`, `Withdrawal`, `AssessFee`, `RefundFee`. Engine handles BeginTx → idempotency precheck (with type-conflict check) → canonical-order lock → per-flow type guard + direction → currency match → funds check → CreateTransaction → 2 entries → POSTED → Commit. 23505 race fallback after CreateTransaction (also runs the type-conflict check on refetch).
+  - `post.go` — shared engine `Post(ctx, db, p, postType)` + thin public wrappers: `Transfer`, `Deposit`, `Withdrawal`, `AssessFee`, `RefundFee`, plus `Reverse(ctx, db, ReverseParams)`. Engine handles BeginTx → idempotency precheck (with type-conflict check) → canonical-order lock → per-flow type guard + direction → currency match → funds check → CreateTransaction → 2 entries → POSTED → Commit. 23505 race fallback after CreateTransaction (also runs the type-conflict check on refetch). 10 PostType values: 5 forward + 5 reversal.
+  - `Reverse` looks up the original via `repository.GetTransaction`, blocks unless `StatusPosted`, blocks if `repository.TransactionHasReversal` returns true, swaps from/to from the original entries, and calls `Post` with the inverse PostType from the package-private `reversalOf` map. The map covers forward → reversal and reversal → forward (so reversal-of-reversal works as a normal Post).
   - `balance.go` — `needsFundsCheck`, `availableBalance` helpers (CREDIT-normal sign flip).
   - `PostBookFee` is commented out — `FEE_REVENUE → TREASURY` is not a balanced double-entry pair as modeled (both sides decrease). Needs an equity account or a redefined model. Decide before re-enabling.
-- `internal/errors/` — domain sentinels: `ErrInsufficientFunds`, `ErrCurrencyMismatch`, `ErrAccountNotFound`, `ErrSameAccount`, `ErrInvalidAmount`, `ErrInvalidAccountType`, `ErrIdempotencyConflict`. Imported as `errx` because `package errors` clashes with stdlib name.
+- `internal/errors/` — domain sentinels: `ErrInsufficientFunds`, `ErrCurrencyMismatch`, `ErrAccountNotFound`, `ErrSameAccount`, `ErrInvalidAmount`, `ErrInvalidAccountType`, `ErrIdempotencyConflict`, `ErrNotReversible`, `ErrAlreadyReversed`. Imported as `errx` because `package errors` clashes with stdlib name.
 - `internal/models/` — plain structs. `Transaction.PostedAt` is `*time.Time` (NULL until POSTED). `external_id` is informational, **non-unique**. `idempotency_key` is `UNIQUE NOT NULL`.
 
-Schema is double-entry ledger. Sum of debits == sum of credits per transaction is the balancing invariant. Append-only — no `Delete*` for entries/transactions, no row mutation; reversal is a new opposing transaction or a status flip to `REVERSED`.
+Schema is double-entry ledger. Sum of debits == sum of credits per transaction is the balancing invariant. Append-only — no `Delete*` for entries/transactions, no row mutation; reversal is always a new opposing transaction (option A — option B status-flip was rejected because balances wouldn't move).
 
 ---
 
@@ -60,7 +61,14 @@ Per-flow direction matrix (each row is `from / to` per `post.go` switch):
 | `PostWithdraw` | USER_CASH → EXTERNAL | DEBIT | CREDIT | Yes |
 | `PostAssessFee` | USER_CASH → FEE_REVENUE | DEBIT | CREDIT | Yes |
 | `PostRefundFee` | FEE_REVENUE → USER_CASH | DEBIT | CREDIT | No |
+| `PostCashTransferReversal` | USER_CASH → USER_CASH | DEBIT | CREDIT | Yes |
+| `PostDepositReversal` | USER_CASH → EXTERNAL | DEBIT | CREDIT | Yes |
+| `PostWithdrawReversal` | EXTERNAL → USER_CASH | DEBIT | CREDIT | No |
+| `PostAssessFeeReversal` | FEE_REVENUE → USER_CASH | DEBIT | CREDIT | No |
+| `PostRefundFeeReversal` | USER_CASH → FEE_REVENUE | DEBIT | CREDIT | Yes |
 | `PostBookFee` (disabled) | FEE_REVENUE → TREASURY | — | — | — |
+
+All current types use `DEBIT/CREDIT`. Future asset↔asset flows (e.g. `TREASURY → EXTERNAL`, `CARD_SETTLEMENT → TREASURY`) will need `CREDIT/DEBIT` — the engine's per-case direction setting is the source of truth, not a universal pattern.
 
 ---
 
@@ -68,16 +76,7 @@ Per-flow direction matrix (each row is `from / to` per `post.go` switch):
 
 ### P1 — Service-layer remainder
 
-1. **Reversal flow.** Refund/chargeback. **Choose option A: new opposing transaction.**
-   - Insert a fresh transaction with `external_id` referencing the original (`external_id` is non-unique by design — multiple txns can share it).
-   - Entries reverse direction (DEBIT becomes CREDIT, account roles swap from→to).
-   - Original stays POSTED for audit; never mutate it.
-   - Funds check applies on whichever account is the new source. For a deposit-reversal (refund), the new source is the user's USER_CASH — funds check applies (can't refund money the user has already spent).
-   - Add `Reverse(ctx, db, originalTxnID, idempotencyKey, ...)` wrapper. Internally builds an inverted `PostParams` and calls a new `PostReversal` post type, OR routes to the inverse of the original's post type.
-   - Open question: should `Reverse` also run the post-type guard against the original's type (e.g., reject reversing a `FEE_REVENUE` → no inverse path defined)? Yes — fail closed.
-   - Option B (status flip via `UpdateTransactionStatus(..., StatusReversed)`) is rejected — cleaner audit but balances don't move, breaks ledger correctness unless every reader knows to skip `REVERSED` rows.
-
-2. **Account open + user register service wrappers.** Currently no service wraps `CreateAccount` / `CreateUser`; handlers would call repo directly. Wrap so invariants live in one place.
+1. **Account open + user register service wrappers.** Currently no service wraps `CreateAccount` / `CreateUser`; handlers would call repo directly. Wrap so invariants live in one place.
    - **`OpenAccount(ctx, db, userID, type, currency)`** —
      - Enforce "one USER_CASH per `(user, currency)`" if that's the desired invariant (decide; if so, add a unique partial index in a new migration).
      - Restrict who can create `EXTERNAL` / `TREASURY` accounts (admin path; for now reject from this service func and add a separate admin-only service later).
@@ -87,7 +86,7 @@ Per-flow direction matrix (each row is `from / to` per `post.go` switch):
      - Default-create a USER_CASH account in the user's currency in the same transaction.
      - Once this lands, the HTTP layer can map `ErrEmailAlreadyExists` → 409 Conflict directly without learning pq codes.
 
-3. **`Clock` interface for `time.Now()`.** Inject a clock so tests can run deterministically. Skeleton:
+2. **`Clock` interface for `time.Now()`.** Inject a clock so tests can run deterministically. Skeleton:
    ```go
    type Clock interface{ Now() time.Time }
    type realClock struct{}
@@ -95,16 +94,19 @@ Per-flow direction matrix (each row is `from / to` per `post.go` switch):
    ```
    Replace direct `time.Now()` calls in `post.go` with `s.clock.Now()`. This implies converting service from package-level functions to methods on a `*Service` struct (or pass the clock through `PostParams`/`context.Context` — pick one; struct is more idiomatic Go for this kind of dependency).
 
-4. **Tests.** Use `testcontainers-go` (real Postgres per test). Mocks of `DBTX` defeat the entire reason DBTX exists — they don't validate SQL or `FOR UPDATE` lock semantics. Tests to write first:
-   - Each post type happy path (5 flows + reversal once landed).
+3. **Tests.** Use `testcontainers-go` (real Postgres per test). Mocks of `DBTX` defeat the entire reason DBTX exists — they don't validate SQL or `FOR UPDATE` lock semantics. Tests to write first:
+   - Each post type happy path (5 forward flows).
+   - Reversal happy path per forward type (5 reversal flows).
+   - Reversal-of-reversal (chains back to forward via `reversalOf` map).
+   - Reversal blocked when original is not `POSTED` → `ErrNotReversible`.
+   - Reversal blocked when original already has a reversal → `ErrAlreadyReversed`.
    - Currency mismatch.
-   - Insufficient funds (USER_CASH source).
+   - Insufficient funds (USER_CASH source — including refund where new source is USER_CASH).
    - Idempotent retry (call twice with same `idempotency_key`, second returns same txn).
    - Idempotency type-conflict (same key, different post type → `ErrIdempotencyConflict`).
    - Concurrent posts crossing same account pair (verify no deadlock).
    - Account-not-found.
-   - Account-type guard rejection per flow.
-   - Reversal: new opposing entries, original unchanged.
+   - Account-type guard rejection per flow (forward + reversal).
 
 ---
 
@@ -122,19 +124,18 @@ Per-flow direction matrix (each row is `from / to` per `post.go` switch):
 
 These come from `.todo` — record so they aren't forgotten when API work starts.
 
-- **`CreateUser` duplicate email → HTTP 409.** Once `RegisterUser` (P1 #2) surfaces `errx.ErrEmailAlreadyExists`, HTTP layer maps it to 409. If `RegisterUser` is skipped, HTTP layer instead detects `pq` `23505` directly via `errors.As(err, &pqErr)` — same pattern as the idempotency race fallback in `post.go`.
+- **`CreateUser` duplicate email → HTTP 409.** Once `RegisterUser` (P1 #1) surfaces `errx.ErrEmailAlreadyExists`, HTTP layer maps it to 409. If `RegisterUser` is skipped, HTTP layer instead detects `pq` `23505` directly via `errors.As(err, &pqErr)` — same pattern as the idempotency race fallback in `post.go`.
 - **Currency stays 3-letter ISO 4217 string in DB.** Schema column is `VARCHAR(3) NOT NULL`. Validate the 3-letter format at the HTTP/request layer (regex `^[A-Z]{3}$` plus optional ISO 4217 allowlist). Service layer assumes input is already valid format — currency mismatch in flows is a different check (compares stored values, not format).
-- **Domain error → HTTP status mapping.** Build a single helper at the HTTP edge: `ErrInsufficientFunds` → 422, `ErrIdempotencyConflict` → 409, `ErrEmailAlreadyExists` → 409, `ErrAccountNotFound` → 404, `ErrInvalidAmount`/`ErrSameAccount`/`ErrInvalidAccountType`/`ErrCurrencyMismatch` → 400. Use `errors.Is` because service layer wraps with `%w`.
+- **Domain error → HTTP status mapping.** Build a single helper at the HTTP edge: `ErrInsufficientFunds` → 422, `ErrIdempotencyConflict` → 409, `ErrAlreadyReversed` → 409, `ErrEmailAlreadyExists` → 409, `ErrAccountNotFound` → 404, `ErrNotReversible` → 422, `ErrInvalidAmount`/`ErrSameAccount`/`ErrInvalidAccountType`/`ErrCurrencyMismatch` → 400. Use `errors.Is` because service layer wraps with `%w`.
 
 ---
 
 ## Recommended execution order
 
-1. P1 #1 (reversal) — closes the service-layer story for ledger flows.
-2. P1 #2 (account open + user register) — gives HTTP layer something to bind to on day one.
-3. P1 #3 (clock) before tests.
-4. P1 #4 (tests) — close the loop on service correctness before HTTP exposes any of it.
-5. After P1: HTTP layer + auth in `internal/http`. Out of scope for this plan.
+1. P1 #1 (account open + user register) — gives HTTP layer something to bind to on day one.
+2. P1 #2 (clock) before tests.
+3. P1 #3 (tests) — close the loop on service correctness before HTTP exposes any of it.
+4. After P1: HTTP layer + auth in `internal/http`. Out of scope for this plan.
 
 When in doubt, re-read this file's "Hard constraints" section before coding.
 
