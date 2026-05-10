@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/ryankavi/payclone/internal/models"
@@ -139,4 +141,20 @@ func GetTransactionByExternalID(ctx context.Context, db DBTX, externalID string)
 		return nil, fmt.Errorf("iterate transactions: %w", err)
 	}
 	return transactions, nil
+}
+
+func TransactionHasReversal(ctx context.Context, db DBTX, transactionID string) (bool, error) {
+	const q = `
+		SELECT 1 FROM transactions WHERE external_id = $1 LIMIT 1
+	`
+
+	var n int
+	err := db.QueryRowContext(ctx, q, transactionID).Scan(&n)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, fmt.Errorf("check transaction reversal: %w", err)
+	}
+	return true, nil
 }

@@ -16,6 +16,7 @@ import (
 type PostParams struct {
 	FromAccountID  string
 	ToAccountID    string
+	ExternalID     *string
 	Amount         int64
 	Currency       string
 	IdempotencyKey string
@@ -23,37 +24,93 @@ type PostParams struct {
 	Description    *string
 }
 
+type ReverseParams struct {
+	TransactionID  string
+	IdempotencyKey string
+	Memo           *string
+}
+
 type PostType string
 
 const (
-	PostCashTransfer PostType = "CASH_TRANSFER"
-	PostDeposit      PostType = "DEPOSIT"
-	PostWithdraw     PostType = "WITHDRAW"
-	PostAssessFee    PostType = "FEE_ASSESSMENT"
-	PostRefundFee    PostType = "FEE_REFUND"
+	PostCashTransfer         PostType = "CASH_TRANSFER"
+	PostDeposit              PostType = "DEPOSIT"
+	PostWithdraw             PostType = "WITHDRAW"
+	PostAssessFee            PostType = "FEE_ASSESSMENT"
+	PostRefundFee            PostType = "FEE_REFUND"
+	PostCashTransferReversal PostType = "CASH_TRANSFER_REVERSAL"
+	PostDepositReversal      PostType = "DEPOSIT_REVERSAL"
+	PostWithdrawReversal     PostType = "WITHDRAW_REVERSAL"
+	PostAssessFeeReversal    PostType = "FEE_ASSESSMENT_REVERSAL"
+	PostRefundFeeReversal    PostType = "FEE_REFUND_REVERSAL"
 	// PostBookFee disabled: FEE_REVENUE -> TREASURY is not a balanced
 	// double-entry pair (both sides decrease). Needs an equity account
 	// or a redefined model. See switch case below.
 	// PostBookFee      PostType = "FEE_REVENUE"
 )
 
-func Transfer(ctx context.Context, database *sql.DB, p PostParams) (models.Transaction, error) {
-	return post(ctx, database, p, PostCashTransfer)
-}
-func Deposit(ctx context.Context, database *sql.DB, p PostParams) (models.Transaction, error) {
-	return post(ctx, database, p, PostDeposit)
-}
-func Withdrawal(ctx context.Context, database *sql.DB, p PostParams) (models.Transaction, error) {
-	return post(ctx, database, p, PostWithdraw)
-}
-func AssessFee(ctx context.Context, database *sql.DB, p PostParams) (models.Transaction, error) {
-	return post(ctx, database, p, PostAssessFee)
-}
-func RefundFee(ctx context.Context, database *sql.DB, p PostParams) (models.Transaction, error) {
-	return post(ctx, database, p, PostRefundFee)
+var reversalOf = map[string]PostType{
+	string(PostCashTransfer):         PostCashTransferReversal,
+	string(PostDeposit):              PostDepositReversal,
+	string(PostWithdraw):             PostWithdrawReversal,
+	string(PostAssessFee):            PostAssessFeeReversal,
+	string(PostRefundFee):            PostRefundFeeReversal,
+	string(PostCashTransferReversal): PostCashTransfer,
+	string(PostDepositReversal):      PostDeposit,
+	string(PostWithdrawReversal):     PostWithdraw,
+	string(PostAssessFeeReversal):    PostAssessFee,
+	string(PostRefundFeeReversal):    PostRefundFee,
 }
 
-func post(ctx context.Context, database *sql.DB, p PostParams, postType PostType) (models.Transaction, error) {
+func Reverse(ctx context.Context, database *sql.DB, reverseParams ReverseParams) (models.Transaction, error) {
+	txn, err := repository.GetTransaction(ctx, database, reverseParams.TransactionID)
+	if err != nil {
+		return models.Transaction{}, fmt.Errorf("fetch original transaction: %w", err)
+	}
+
+	if txn.TransactionStatus != models.StatusPosted {
+		return models.Transaction{}, fmt.Errorf("transaction not posted: %w", errx.ErrNotReversible)
+	}
+
+	inverse, ok := reversalOf[txn.TransactionType]
+	if !ok {
+		return models.Transaction{}, fmt.Errorf("no inverse for type %q: %w", txn.TransactionType, errx.ErrNotReversible)
+	}
+
+	hasReversal, err := repository.TransactionHasReversal(ctx, database, txn.TransactionID)
+	if err != nil {
+		return models.Transaction{}, fmt.Errorf("check existing reversal: %w", err)
+	}
+	if hasReversal {
+		return models.Transaction{}, fmt.Errorf("transaction %s: %w", txn.TransactionID, errx.ErrAlreadyReversed)
+	}
+
+	entries, err := repository.GetEntriesByTransactionID(ctx, database, txn.TransactionID)
+	if err != nil {
+		return models.Transaction{}, fmt.Errorf("fetch original entries: %w", err)
+	}
+
+	var fromID, toID string
+	if entries[0].Direction == models.DirectionDebit {
+		fromID, toID = entries[1].AccountID, entries[0].AccountID
+	} else {
+		fromID, toID = entries[0].AccountID, entries[1].AccountID
+	}
+
+	postParams := PostParams{
+		FromAccountID:  fromID,
+		ToAccountID:    toID,
+		ExternalID:     &txn.TransactionID,
+		Amount:         entries[0].Amount,
+		Currency:       entries[0].Currency,
+		IdempotencyKey: reverseParams.IdempotencyKey,
+		Memo:           reverseParams.Memo,
+	}
+
+	return Post(ctx, database, postParams, inverse)
+}
+
+func Post(ctx context.Context, database *sql.DB, p PostParams, postType PostType) (models.Transaction, error) {
 	if p.Amount <= 0 {
 		return models.Transaction{}, errx.ErrInvalidAmount
 	}
@@ -133,6 +190,31 @@ func post(ctx context.Context, database *sql.DB, p PostParams, postType PostType
 			return models.Transaction{}, fmt.Errorf("fee refund requires FEE_REVENUE -> USER_CASH: %w", errx.ErrInvalidAccountType)
 		}
 		fromDirection, toDirection = models.DirectionDebit, models.DirectionCredit
+	case PostCashTransferReversal:
+		if from.AccountType != models.AccountUserCash || to.AccountType != models.AccountUserCash {
+			return models.Transaction{}, fmt.Errorf("cash transfer reversal requires USER_CASH -> USER_CASH: %w", errx.ErrInvalidAccountType)
+		}
+		fromDirection, toDirection = models.DirectionDebit, models.DirectionCredit
+	case PostDepositReversal:
+		if from.AccountType != models.AccountUserCash || to.AccountType != models.AccountExternal {
+			return models.Transaction{}, fmt.Errorf("deposit reversal requires USER_CASH -> EXTERNAL: %w", errx.ErrInvalidAccountType)
+		}
+		fromDirection, toDirection = models.DirectionDebit, models.DirectionCredit
+	case PostWithdrawReversal:
+		if from.AccountType != models.AccountExternal || to.AccountType != models.AccountUserCash {
+			return models.Transaction{}, fmt.Errorf("withdraw reversal requires EXTERNAL -> USER_CASH: %w", errx.ErrInvalidAccountType)
+		}
+		fromDirection, toDirection = models.DirectionDebit, models.DirectionCredit
+	case PostAssessFeeReversal:
+		if from.AccountType != models.AccountFeeRevenue || to.AccountType != models.AccountUserCash {
+			return models.Transaction{}, fmt.Errorf("fee assessment reversal requires FEE_REVENUE -> USER_CASH: %w", errx.ErrInvalidAccountType)
+		}
+		fromDirection, toDirection = models.DirectionDebit, models.DirectionCredit
+	case PostRefundFeeReversal:
+		if from.AccountType != models.AccountUserCash || to.AccountType != models.AccountFeeRevenue {
+			return models.Transaction{}, fmt.Errorf("fee refund reversal requires USER_CASH -> FEE_REVENUE: %w", errx.ErrInvalidAccountType)
+		}
+		fromDirection, toDirection = models.DirectionDebit, models.DirectionCredit
 	// case PostBookFee:
 	// 	// Disabled: FEE_REVENUE (CREDIT-normal) -> TREASURY (DEBIT-normal) is
 	// 	// not a balanced double-entry pair. Closing revenue into asset needs
@@ -161,7 +243,7 @@ func post(ctx context.Context, database *sql.DB, p PostParams, postType PostType
 		}
 	}
 
-	t, err := repository.CreateTransaction(ctx, tx, nil, p.IdempotencyKey, string(postType), p.Description)
+	t, err := repository.CreateTransaction(ctx, tx, p.ExternalID, p.IdempotencyKey, string(postType), p.Description)
 	if err != nil {
 		// Catch concurrent caller with the same idempotency_key, 23505 is result of UNIQUE violation rejection
 		// Re-fetch via the live *sql.DB (this tx is going to roll back) to see new transaction
