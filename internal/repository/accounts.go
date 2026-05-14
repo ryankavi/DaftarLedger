@@ -14,13 +14,14 @@ func CreateAccount(ctx context.Context, db DBTX, ownerID string, accountType mod
 	const q = `
 		INSERT INTO accounts (account_type, owner_id, currency)
 		VALUES ($1, $2, $3)
-		RETURNING account_id, account_type, owner_id, currency, created_at
+		RETURNING account_id, account_type, account_status, owner_id, currency, created_at
 	`
 
 	var a models.Account
 	err := db.QueryRowContext(ctx, q, accountType, ownerID, currency).Scan(
 		&a.AccountID,
 		&a.AccountType,
+		&a.AccountStatus,
 		&a.OwnerID,
 		&a.Currency,
 		&a.CreatedAt,
@@ -33,7 +34,7 @@ func CreateAccount(ctx context.Context, db DBTX, ownerID string, accountType mod
 
 func GetAccount(ctx context.Context, db DBTX, accountID string) (models.Account, error) {
 	const q = `
-		SELECT account_id, account_type, owner_id, currency, created_at
+		SELECT account_id, account_type, account_status, owner_id, currency, created_at
 		FROM accounts
 		WHERE account_id = $1
 	`
@@ -42,6 +43,7 @@ func GetAccount(ctx context.Context, db DBTX, accountID string) (models.Account,
 	err := db.QueryRowContext(ctx, q, accountID).Scan(
 		&a.AccountID,
 		&a.AccountType,
+		&a.AccountStatus,
 		&a.OwnerID,
 		&a.Currency,
 		&a.CreatedAt,
@@ -70,23 +72,25 @@ func LockAccount(ctx context.Context, db DBTX, accountID string) error {
 	return nil
 }
 
-func DeleteAccount(ctx context.Context, db DBTX, accountID string) error {
+func UpdateAccountStatus(ctx context.Context, db DBTX, accountID string, accountStatus models.AccountStatus) (models.Account, error) {
 	const q = `
-		DELETE FROM accounts
+		UPDATE accounts
+		SET account_status = $2
 		WHERE account_id = $1
+		RETURNING account_id, account_type, account_status, owner_id, currency, created_at
 	`
 
-	res, err := db.ExecContext(ctx, q, accountID)
+	var a models.Account
+	err := db.QueryRowContext(ctx, q, accountID, accountStatus).Scan(
+		&a.AccountID,
+		&a.AccountType,
+		&a.AccountStatus,
+		&a.OwnerID,
+		&a.Currency,
+		&a.CreatedAt,
+	)
 	if err != nil {
-		return fmt.Errorf("delete account: %w", err)
+		return models.Account{}, fmt.Errorf("update account status if: %w", err)
 	}
-
-	n, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("delete account rows affected: %w", err)
-	}
-	if n == 0 {
-		return sql.ErrNoRows
-	}
-	return nil
+	return a, nil
 }

@@ -62,6 +62,14 @@ var reversalOf = map[string]PostType{
 	string(PostRefundFeeReversal):    PostRefundFee,
 }
 
+var reversalPostTypes = map[PostType]bool{
+	PostCashTransferReversal: true,
+	PostDepositReversal:      true,
+	PostWithdrawReversal:     true,
+	PostAssessFeeReversal:    true,
+	PostRefundFeeReversal:    true,
+}
+
 func Reverse(ctx context.Context, database *sql.DB, reverseParams ReverseParams) (models.Transaction, error) {
 	txn, err := repository.GetTransaction(ctx, database, reverseParams.TransactionID)
 	if err != nil {
@@ -153,6 +161,9 @@ func Post(ctx context.Context, database *sql.DB, p PostParams, postType PostType
 		a, err := repository.GetAccount(ctx, tx, id)
 		if err != nil {
 			return models.Transaction{}, fmt.Errorf("get account: %w", err)
+		}
+		if !reversalPostTypes[postType] && a.AccountStatus != models.AccountStatusOpen {
+			return models.Transaction{}, fmt.Errorf("cannot post to %s account with ID \"%s\": %w", a.AccountStatus, a.AccountID, errx.ErrAccountNotOpen)
 		}
 		accounts[id] = a
 	}

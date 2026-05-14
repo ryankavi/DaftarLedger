@@ -20,6 +20,14 @@ const (
 	AccountTreasury       AccountType = "TREASURY"
 )
 
+type AccountStatus string
+
+const (
+	AccountStatusOpen   AccountStatus = "OPEN"
+	AccountStatusFrozen AccountStatus = "FROZEN"
+	AccountStatusClosed AccountStatus = "CLOSED"
+)
+
 type TransactionStatus string
 
 const (
@@ -35,11 +43,12 @@ type User struct {
 }
 
 type Account struct {
-	AccountID   string
-	AccountType AccountType
-	OwnerID     string
-	Currency    string
-	CreatedAt   time.Time
+	AccountID     string
+	AccountType   AccountType
+	AccountStatus AccountStatus
+	OwnerID       string
+	Currency      string
+	CreatedAt     time.Time
 }
 
 type Entry struct {
