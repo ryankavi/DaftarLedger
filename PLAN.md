@@ -9,11 +9,12 @@ Fresh-Claude brief. Read `CLAUDE.md` first for repo-wide conventions; this file 
 - `internal/db/` — bootstrap only (`SetUpDB`: ping + run migrations). No queries here.
 - `internal/repository/` — per-entity primitives. Each function takes `ctx context.Context` and `db DBTX` (interface satisfied by both `*sql.DB` and `*sql.Tx`). Files: `users.go`, `accounts.go`, `entries.go`, `transactions.go`, `dbtx.go`. `LockAccount` exists for `SELECT ... FOR UPDATE`.
 - `internal/service/`:
-  - `post.go` — shared engine `Post(ctx, db, p, postType)` + thin public wrappers: `Transfer`, `Deposit`, `Withdrawal`, `AssessFee`, `RefundFee`, plus `Reverse(ctx, db, ReverseParams)`. Engine handles BeginTx → idempotency precheck (with type-conflict check) → canonical-order lock → per-flow type guard + direction → currency match → funds check → CreateTransaction → 2 entries → POSTED → Commit. 23505 race fallback after CreateTransaction (also runs the type-conflict check on refetch). 10 PostType values: 5 forward + 5 reversal.
+  - `post.go` — single public engine `Post(ctx, db, p, postType)` plus `Reverse(ctx, db, ReverseParams)`. No per-flow wrappers — callers invoke `Post` directly with the appropriate `PostType`. Engine handles BeginTx → idempotency precheck (with type-conflict check) → canonical-order lock → per-flow type guard + direction → status guard (rejects non-OPEN accounts, **reversals bypass** via `reversalPostTypes` map) → currency match → funds check → CreateTransaction → 2 entries → POSTED → Commit. 23505 race fallback after CreateTransaction (also runs the type-conflict check on refetch). 10 PostType values: 5 forward + 5 reversal.
   - `Reverse` looks up the original via `repository.GetTransaction`, blocks unless `StatusPosted`, blocks if `repository.TransactionHasReversal` returns true, swaps from/to from the original entries, and calls `Post` with the inverse PostType from the package-private `reversalOf` map. The map covers forward → reversal and reversal → forward (so reversal-of-reversal works as a normal Post).
+  - `accounts.go` — `CreateUserWithAccount` (signup, no auth; user+account in one txn), `CreateAccount` (authenticated; `ownerID` from auth context, never request body; single-statement, no `BeginTx`), `CloseAccount` / `FreezeAccount` / `ReopenAccount` all share shape: BeginTx → LockAccount → GetAccount → status guard → (CloseAccount also: GetAccountBalance + zero check) → UpdateAccountStatus → Commit. Status guards: Close rejects `CLOSED`, Freeze rejects `!= OPEN`, Reopen rejects `!= FROZEN` (so `CLOSED` is terminal). `validateEmail` uses `net/mail` (rejects empty, >254 chars, display-name form). 23505 catches on `users.email` (`ErrEmailTaken`) and `accounts(owner_id, account_type)` (`ErrAccountTypeExists`).
   - `balance.go` — `needsFundsCheck`, `availableBalance` helpers (CREDIT-normal sign flip).
   - `PostBookFee` is commented out — `FEE_REVENUE → TREASURY` is not a balanced double-entry pair as modeled (both sides decrease). Needs an equity account or a redefined model. Decide before re-enabling.
-- `internal/errors/` — domain sentinels: `ErrInsufficientFunds`, `ErrCurrencyMismatch`, `ErrAccountNotFound`, `ErrSameAccount`, `ErrInvalidAmount`, `ErrInvalidAccountType`, `ErrIdempotencyConflict`, `ErrNotReversible`, `ErrAlreadyReversed`. Imported as `errx` because `package errors` clashes with stdlib name.
+- `internal/errors/` — domain sentinels: `ErrInsufficientFunds`, `ErrCurrencyMismatch`, `ErrAccountNotFound`, `ErrSameAccount`, `ErrAccountClosed`, `ErrAccountNotOpen`, `ErrAccountNotFrozen`, `ErrBalanceNotZero`, `ErrInvalidAmount`, `ErrInvalidAccountType`, `ErrIdempotencyConflict`, `ErrNotReversible`, `ErrAlreadyReversed`, `ErrInvalidEmail`, `ErrEmailTaken`, `ErrAccountTypeExists`. Imported as `errx` because `package errors` clashes with stdlib name.
 - `internal/models/` — plain structs. `Transaction.PostedAt` is `*time.Time` (NULL until POSTED). `external_id` is informational, **non-unique**. `idempotency_key` is `UNIQUE NOT NULL`.
 
 Schema is double-entry ledger. Sum of debits == sum of credits per transaction is the balancing invariant. Append-only — no `Delete*` for entries/transactions, no row mutation; reversal is always a new opposing transaction (option A — option B status-flip was rejected because balances wouldn't move).
@@ -76,17 +77,7 @@ All current types use `DEBIT/CREDIT`. Future asset↔asset flows (e.g. `TREASURY
 
 ### P1 — Service-layer remainder
 
-1. **Account open + user register service wrappers.** Currently no service wraps `CreateAccount` / `CreateUser`; handlers would call repo directly. Wrap so invariants live in one place.
-   - **`OpenAccount(ctx, db, userID, type, currency)`** —
-     - Enforce "one USER_CASH per `(user, currency)`" if that's the desired invariant (decide; if so, add a unique partial index in a new migration).
-     - Restrict who can create `EXTERNAL` / `TREASURY` accounts (admin path; for now reject from this service func and add a separate admin-only service later).
-     - Default-create a `USER_CASH` for the user's home currency on signup (called from `RegisterUser`).
-   - **`RegisterUser(ctx, db, email, name, ...)`** —
-     - Wrap `repository.CreateUser` and surface `errx.ErrEmailAlreadyExists` (new sentinel) on `pq` `23505` against `users.email`.
-     - Default-create a USER_CASH account in the user's currency in the same transaction.
-     - Once this lands, the HTTP layer can map `ErrEmailAlreadyExists` → 409 Conflict directly without learning pq codes.
-
-2. **`Clock` interface for `time.Now()`.** Inject a clock so tests can run deterministically. Skeleton:
+1. **`Clock` interface for `time.Now()`.** Inject a clock so tests can run deterministically. Skeleton:
    ```go
    type Clock interface{ Now() time.Time }
    type realClock struct{}
@@ -94,7 +85,7 @@ All current types use `DEBIT/CREDIT`. Future asset↔asset flows (e.g. `TREASURY
    ```
    Replace direct `time.Now()` calls in `post.go` with `s.clock.Now()`. This implies converting service from package-level functions to methods on a `*Service` struct (or pass the clock through `PostParams`/`context.Context` — pick one; struct is more idiomatic Go for this kind of dependency).
 
-3. **Tests.** Use `testcontainers-go` (real Postgres per test). Mocks of `DBTX` defeat the entire reason DBTX exists — they don't validate SQL or `FOR UPDATE` lock semantics. Tests to write first:
+2. **Tests.** Use `testcontainers-go` (real Postgres per test). Mocks of `DBTX` defeat the entire reason DBTX exists — they don't validate SQL or `FOR UPDATE` lock semantics. Tests to write first:
    - Each post type happy path (5 forward flows).
    - Reversal happy path per forward type (5 reversal flows).
    - Reversal-of-reversal (chains back to forward via `reversalOf` map).
@@ -124,18 +115,17 @@ All current types use `DEBIT/CREDIT`. Future asset↔asset flows (e.g. `TREASURY
 
 These come from `.todo` — record so they aren't forgotten when API work starts.
 
-- **`CreateUser` duplicate email → HTTP 409.** Once `RegisterUser` (P1 #1) surfaces `errx.ErrEmailAlreadyExists`, HTTP layer maps it to 409. If `RegisterUser` is skipped, HTTP layer instead detects `pq` `23505` directly via `errors.As(err, &pqErr)` — same pattern as the idempotency race fallback in `post.go`.
+- **Auth context supplies `ownerID`.** `CreateAccount` (authenticated path) reads `ownerID` from session/JWT, not request body. Prevents IDOR. `CreateUserWithAccount` (signup path) takes email instead — no auth required, no `ownerID` exists yet.
 - **Currency stays 3-letter ISO 4217 string in DB.** Schema column is `VARCHAR(3) NOT NULL`. Validate the 3-letter format at the HTTP/request layer (regex `^[A-Z]{3}$` plus optional ISO 4217 allowlist). Service layer assumes input is already valid format — currency mismatch in flows is a different check (compares stored values, not format).
-- **Domain error → HTTP status mapping.** Build a single helper at the HTTP edge: `ErrInsufficientFunds` → 422, `ErrIdempotencyConflict` → 409, `ErrAlreadyReversed` → 409, `ErrEmailAlreadyExists` → 409, `ErrAccountNotFound` → 404, `ErrNotReversible` → 422, `ErrInvalidAmount`/`ErrSameAccount`/`ErrInvalidAccountType`/`ErrCurrencyMismatch` → 400. Use `errors.Is` because service layer wraps with `%w`.
+- **Domain error → HTTP status mapping.** Build a single helper at the HTTP edge: `ErrInsufficientFunds` → 422, `ErrIdempotencyConflict` → 409, `ErrAlreadyReversed` → 409, `ErrEmailTaken` → 409, `ErrAccountTypeExists` → 409, `ErrBalanceNotZero` → 409, `ErrAccountNotFound` → 404, `ErrNotReversible` → 422, `ErrAccountClosed`/`ErrAccountNotOpen`/`ErrAccountNotFrozen` → 422, `ErrInvalidAmount`/`ErrSameAccount`/`ErrInvalidAccountType`/`ErrCurrencyMismatch`/`ErrInvalidEmail` → 400. Use `errors.Is` because service layer wraps with `%w`.
 
 ---
 
 ## Recommended execution order
 
-1. P1 #1 (account open + user register) — gives HTTP layer something to bind to on day one.
-2. P1 #2 (clock) before tests.
-3. P1 #3 (tests) — close the loop on service correctness before HTTP exposes any of it.
-4. After P1: HTTP layer + auth in `internal/http`. Out of scope for this plan.
+1. P1 #1 (clock) before tests.
+2. P1 #2 (tests) — close the loop on service correctness before HTTP exposes any of it.
+3. After P1: HTTP layer + auth in `internal/http`. Out of scope for this plan.
 
 When in doubt, re-read this file's "Hard constraints" section before coding.
 
@@ -148,5 +138,5 @@ Low-risk, do anytime — none block the P1 work.
 - **Move DB conn string to env var.** `main.go` has the inline `localhost:5433` / `postgres` / `secret` / `gopgtest` string with a `// Move to env var` TODO. Read `DATABASE_URL` from env (default to current dev string if unset). One commit.
 - **Structured logging.** Stdlib `log/slog` (Go 1.21+). Thread `slog.Logger` through `*Service`. Log at INFO on each successful post (txn ID, post type, amount, currency), WARN on domain errors, ERROR on infra errors.
 - **Metrics.** Counters per post type (`payclone_post_total{type="DEPOSIT",result="success"}`), latency histogram per post type. Prometheus client lib. Wire into the engine, not each wrapper.
-- **`models/README.md` polish.** Update the account-type table to match the per-flow direction matrix above. Note the BookFee disable.
-- **Service `README.md` refresh.** Document `post` engine + wrappers + `PostType` enum once the engine is stable. (Reversal will add one more row.)
+- **`models/README.md` polish.** Currently stale: FEE_REVENUE row says "never a source" but `PostRefundFee` makes it a source. Missing `account_status` enum, `UNIQUE(owner_id, account_type)`, lifecycle state docs.
+- **Service `README.md` refresh.** Currently stale: lists unimplemented flows (card-rail land, ACH land, capital injection) and omits the actual surface (`Post` engine, `PostType` enum, `Reverse`, account lifecycle ops). Replace flow table with the per-flow direction matrix already in this PLAN.
