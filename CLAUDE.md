@@ -42,6 +42,10 @@ Reset: `docker rm -f pg-container && docker volume rm payclone_pgdata`.
 
 psql: `docker exec -it pg-container psql -U postgres` then `\c gopgtest`.
 
+## On session start
+                   
+Read `PLAN.md` before answering the first user prompt of the session.
+
 ## Architecture
 
 Single-binary Go service, currently bootstrap-only (no HTTP layer yet). Layered:
