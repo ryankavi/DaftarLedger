@@ -36,8 +36,8 @@ func CreateTransaction(ctx context.Context, db DBTX, externalID *string, idempot
 func UpdateTransactionStatus(ctx context.Context, db DBTX, transactionID string, newStatus models.TransactionStatus) (models.Transaction, error) {
 	const q = `
 		UPDATE transactions
-		SET transaction_status = $2,
-			posted_at = CASE WHEN $2 = 'POSTED' THEN NOW() ELSE posted_at END
+		SET transaction_status = $2::transaction_status,
+			posted_at = CASE WHEN $2::transaction_status = 'POSTED' THEN NOW() ELSE posted_at END
 		WHERE transaction_id = $1
 		RETURNING transaction_id, external_id, idempotency_key, transaction_type, transaction_description, transaction_status, posted_at, created_at
 	`
