@@ -17,7 +17,11 @@ Fresh-Claude brief. Read `CLAUDE.md` first for repo-wide conventions; this file 
   - `PostBookFee` is commented out — `FEE_REVENUE → TREASURY` is not a balanced double-entry pair as modeled (both sides decrease). Needs an equity account or a redefined model. Decide before re-enabling.
 - `internal/errors/` — domain sentinels: `ErrInsufficientFunds`, `ErrCurrencyMismatch`, `ErrAccountNotFound`, `ErrSameAccount`, `ErrAccountClosed`, `ErrAccountNotOpen`, `ErrAccountNotFrozen`, `ErrBalanceNotZero`, `ErrInvalidAmount`, `ErrInvalidAccountType`, `ErrIdempotencyConflict`, `ErrNotReversible`, `ErrAlreadyReversed`, `ErrInvalidEmail`, `ErrEmailTaken`, `ErrAccountTypeExists`. Imported as `errx` because `package errors` clashes with stdlib name.
 - `internal/models/` — plain structs. `Transaction.PostedAt` is `*time.Time` (NULL until POSTED). `external_id` is informational, **non-unique**. `idempotency_key` is `UNIQUE NOT NULL`.
-- No `internal/http/` yet. `main.go` only opens DB + runs migrations.
+- `internal/http/` (package `httpapi` — directory named `http` but package renamed to avoid stdlib clash):
+  - `server.go` — `*Server` struct (db, logger, mux), `NewServer`, `routes()` (registers all 11 routes), `ServeHTTP` (delegates to mux), `Run(ctx, addr, shutdownTimeout)` with graceful shutdown via goroutine + `select` on `ctx.Done()` vs. error channel.
+  - `handlers.go` — handler methods on `*Server`. Per-handler request/response DTO structs colocated with handlers. `signup` fully implemented (decode with `DisallowUnknownFields` → `service.CreateUserWithAccount` → inline error-to-status switch → `signupResponse` DTO → `201 Created`). The other 10 handlers are stubbed (empty bodies).
+  - Routes registered: `POST /signup`, `POST /accounts`, `POST /accounts/{id}/{close|freeze|reopen}`, `POST /transactions/{transfer|deposit|withdrawal|fees/assess|fees/refund}`, `POST /transactions/{id}/reverse`.
+- `main.go` opens DB → runs migrations → builds `slog.Logger` (JSON handler) → builds signal-cancellable ctx via `signal.NotifyContext` → `httpapi.NewServer(database, logger)` → `srv.Run(ctx, ":8080", SHUTDOWN_TIME)`. Connection string still inline (env-var TODO unchanged).
 
 Schema is double-entry ledger. Sum of debits == sum of credits per transaction is the balancing invariant. Append-only — no `Delete*` for entries/transactions, no row mutation; reversal is always a new opposing transaction.
 
@@ -75,51 +79,61 @@ All current types use `DEBIT/CREDIT`. Future asset↔asset flows (e.g. `TREASURY
 
 ---
 
-## Next: HTTP layer (`internal/http/`)
+## In progress: HTTP layer (`internal/http/`, package `httpapi`)
 
-Service surface stable + tested. HTTP is the next layer.
+Server skeleton + route table + DTO/error-handling pattern landed via the `signup` handler. Remaining work is mostly mechanical replication across the other 10 handlers.
 
-### Surface to expose
+### Current route table (as registered in `server.go`)
 
-Map service funcs to routes. Service signatures already take `ownerID` separately — handler reads it from auth context (stub for now, real middleware later), never from request body.
-
-| Method + path | Service call | Notes |
+| Method + path | Handler | Service call |
 |---|---|---|
-| `POST /signup` | `CreateUserWithAccount` | No auth. Body: `email`, `account_type`, `currency`. |
-| `POST /accounts` | `CreateAccount` | Auth required. `ownerID` from ctx. |
-| `POST /accounts/{id}/close` | `CloseAccount` | Auth. |
-| `POST /accounts/{id}/freeze` | `FreezeAccount` | Auth. |
-| `POST /accounts/{id}/reopen` | `ReopenAccount` | Auth. |
-| `POST /transfers` | `Post` (CASH_TRANSFER) | Body picks one PostType per route or accepts `type` field — pick one. |
-| `POST /deposits` | `Post` (DEPOSIT) | |
-| `POST /withdrawals` | `Post` (WITHDRAW) | |
-| `POST /fees/assess` | `Post` (FEE_ASSESSMENT) | |
-| `POST /fees/refund` | `Post` (FEE_REFUND) | |
-| `POST /transactions/{id}/reverse` | `Reverse` | Body: `idempotency_key`, optional `memo`. |
-| `GET /accounts/{id}` | `repository.GetAccount` via service passthrough | Read path. |
-| `GET /accounts/{id}/balance` | `repository.GetAccountBalance` + sign flip | Apply `availableBalance` for display. |
+| `POST /signup` | `s.signup` ✅ | `CreateUserWithAccount` |
+| `POST /accounts` | `s.createAccount` | `CreateAccount` (auth — `ownerID` from ctx) |
+| `POST /accounts/{id}` | `s.getAccount` | `repository.GetAccount` (likely should be `GET`) |
+| `POST /accounts/{id}/balance` | `s.getAccountBalance` | `repository.GetAccountBalance` + sign flip (likely should be `GET`) |
+| `POST /accounts/{id}/close` | `s.closeAccount` | `CloseAccount` |
+| `POST /accounts/{id}/freeze` | `s.freezeAccount` | `FreezeAccount` |
+| `POST /accounts/{id}/reopen` | `s.reopenAccount` | `ReopenAccount` |
+| `POST /transactions/transfer` | `s.cashTransfer` | `Post` (CASH_TRANSFER) |
+| `POST /transactions/deposit` | `s.deposit` | `Post` (DEPOSIT) |
+| `POST /transactions/withdraw` | `s.withdraw` | `Post` (WITHDRAW) |
+| `POST /transactions/assess_fee` | `s.feeAssess` | `Post` (FEE_ASSESSMENT) |
+| `POST /transactions/refund_fee` | `s.feeRefund` | `Post` (FEE_REFUND) |
+| `POST /transactions/{id}/reverse` | `s.reverse` | `Reverse` (service picks inverse PostType internally) |
 
-Decide: one `POST /transactions` with `type` field vs. one route per flow. Per-flow routes give cleaner validation and OpenAPI; single endpoint is fewer handlers. Lean per-flow.
+Per-flow routes chosen over a single `POST /transactions` with `type` field. Reversal post types are never named by callers (the `Reverse` service derives them via `reversalOf` map).
 
-### Concrete next steps
+### Pattern established by `signup` (replicate for each handler)
 
-1. **Pick a router.** `net/http` + `http.ServeMux` (Go 1.22 path params) is enough; no need for chi/gorilla yet.
-2. **Request validation at the edge.** Currency `^[A-Z]{3}$`. Amount > 0. `idempotency_key` non-empty. Reject malformed JSON with 400.
-3. **Domain error → HTTP status helper.** Single `func toHTTPStatus(err error) int` using `errors.Is`:
+1. Per-handler request/response DTO structs colocated above the handler.
+2. `json.NewDecoder(r.Body)` with `dec.DisallowUnknownFields()` → 400 on decode error or unknown field (catches client typos).
+3. Call into service with `r.Context()` (so client disconnect / server shutdown cancels in-flight queries).
+4. `slog` structured error log: `s.logger.Error("signup failed", "err", err)` — key-value pairs, not `%w`.
+5. Inline `switch { case errors.Is(err, errx.X): ... }` mapping. **Currently inline per-handler** — promote to shared `toHTTPStatus(err) int` helper once 2+ handlers duplicate the same mapping.
+6. Success: build response DTO from service return (cast named string types to `string`), set `Content-Type: application/json`, `w.WriteHeader(201)` for creates, `json.NewEncoder(w).Encode(resp)`.
+
+Sample for what success looks like end-to-end: `signup` in `handlers.go`.
+
+### Remaining HTTP work
+
+1. **`createAccount` handler.** Same shape as `signup` minus the user creation. Blocked on auth-context decision below (needs `ownerID` from somewhere).
+2. **Auth context stub.** `func ownerFromCtx(ctx) (string, error)` reading a header for now (e.g. `X-Owner-ID`), with a middleware that writes the value into `context.Value`. Real JWT/session swap later. Until this lands, `createAccount` can't be wired.
+3. **Lifecycle handlers** (`closeAccount`, `freezeAccount`, `reopenAccount`). Path param via `r.PathValue("id")`. No body. Service returns `error` only — respond `204 No Content` on success.
+4. **Transaction handlers** (`cashTransfer`, `deposit`, `withdraw`, `feeAssess`, `feeRefund`). Each takes a body with `from_account_id`, `to_account_id`, `external_id` (optional), `amount`, `currency`, `idempotency_key`, `memo` (optional), `description` (optional). Calls `service.Post` with the appropriate `PostType` constant hardcoded per handler. Returns the resulting `Transaction` as a response DTO with `201`.
+5. **`reverse` handler.** Path param for `{id}`. Body: `idempotency_key`, optional `memo`. Calls `service.Reverse`. Same response shape as transaction handlers.
+6. **Currency format validation at edge.** Regex `^[A-Z]{3}$` before calling service. Other field validation (positive amount, non-empty idempotency key) — defer to service errors, they already cover it.
+7. **Promote inline error switch to `toHTTPStatus`.** Once the second handler copies the mapping. Mapping plan:
    - 400: `ErrInvalidAmount`, `ErrSameAccount`, `ErrInvalidAccountType`, `ErrCurrencyMismatch`, `ErrInvalidEmail`
    - 404: `ErrAccountNotFound`
    - 409: `ErrIdempotencyConflict`, `ErrAlreadyReversed`, `ErrEmailTaken`, `ErrAccountTypeExists`, `ErrBalanceNotZero`
    - 422: `ErrInsufficientFunds`, `ErrNotReversible`, `ErrAccountClosed`, `ErrAccountNotOpen`, `ErrAccountNotFrozen`
    - 500: everything else
-4. **Auth context stub.** `func ownerFromCtx(ctx) (string, error)` — pulls from a `context.Value` key. Middleware writes the key; for now hardcode/test mode reads a header. Real JWT/session later.
-5. **Wire into `main.go`.** Open DB → migrate → build mux → `http.ListenAndServe`. Graceful shutdown via `http.Server.Shutdown` on SIGINT/SIGTERM.
-6. **JSON DTOs separate from `internal/models` structs.** Don't marshal DB structs directly — add request/response types in `internal/http`. Decouples wire format from schema.
-7. **Handler tests** with `httptest.NewServer` against the same `testcontainers` Postgres. One test per route × happy path + main error case.
+8. **Handler tests** with `httptest.NewServer` against the same `testcontainers` Postgres pattern used in `internal/service/`. One test per route × happy path + main error case. Test pattern reuse: extract a `newTestServer(t) *Server` helper.
 
 ### Out of scope for HTTP slice 1
 
-- Real auth (JWT/session). Stub via header for now.
-- Rate limiting, CORS, request logging middleware — add after slice 1.
+- Real auth (JWT/session). Header-based stub for now.
+- Rate limiting, CORS, request logging middleware.
 - OpenAPI generation.
 - WebSocket / SSE.
 
@@ -137,7 +151,7 @@ Low-risk, do anytime — none block HTTP work.
   func (realClock) Now() time.Time { return time.Now() }
   ```
   Implies converting service from package-level functions to methods on a `*Service` struct. Not blocking — current tests pass with real time. Defer until a flake forces it.
-- **Structured logging.** Stdlib `log/slog`. Thread `slog.Logger` through `*Service` (after Clock refactor). INFO on each successful post, WARN on domain errors, ERROR on infra errors.
+- **Structured logging in service layer.** `slog.Logger` is now threaded into `*Server` (HTTP layer) — extend the same pattern into the service layer after Clock refactor. INFO on each successful post, WARN on domain errors, ERROR on infra errors.
 - **Metrics.** Counters per post type, latency histogram per post type. Prometheus client lib. Wire into the engine, not each wrapper.
 - **`models/README.md` polish.** Stale: FEE_REVENUE row says "never a source" but `PostRefundFee` makes it a source. Missing `account_status` enum, `UNIQUE(owner_id, account_type)`, lifecycle state docs.
 - **`service/README.md` refresh.** Stale: lists unimplemented flows (card-rail land, ACH land, capital injection) and omits the actual surface (`Post` engine, `PostType` enum, `Reverse`, account lifecycle ops). Replace flow table with the per-flow direction matrix already in this PLAN.
