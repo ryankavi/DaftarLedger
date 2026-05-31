@@ -73,6 +73,9 @@ var reversalPostTypes = map[PostType]bool{
 func Reverse(ctx context.Context, database *sql.DB, reverseParams ReverseParams) (models.Transaction, error) {
 	txn, err := repository.GetTransaction(ctx, database, reverseParams.TransactionID)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return models.Transaction{}, fmt.Errorf("fetch original transaction: %w", errx.ErrTransactionNotFound)
+		}
 		return models.Transaction{}, fmt.Errorf("fetch original transaction: %w", err)
 	}
 

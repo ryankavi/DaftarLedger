@@ -47,6 +47,51 @@ func TestGetAccount_NotFound(t *testing.T) {
 	require.ErrorIs(t, err, sql.ErrNoRows)
 }
 
+func TestGetAccountsFromOwnerID(t *testing.T) {
+	truncateAll(t)
+	ctx := context.Background()
+
+	owner, err := CreateUser(ctx, testDB, "multi@example.com")
+	require.NoError(t, err)
+
+	// Two accounts for the same owner; distinct types to satisfy
+	// UNIQUE(owner_id, account_type).
+	a1, err := CreateAccount(ctx, testDB, owner.UserID, models.AccountUserCash, "USD")
+	require.NoError(t, err)
+	a2, err := CreateAccount(ctx, testDB, owner.UserID, models.AccountExternal, "USD")
+	require.NoError(t, err)
+
+	// A different owner's account must not leak into the result.
+	other, err := CreateUser(ctx, testDB, "other@example.com")
+	require.NoError(t, err)
+	_, err = CreateAccount(ctx, testDB, other.UserID, models.AccountUserCash, "USD")
+	require.NoError(t, err)
+
+	got, err := GetAccountsFromOwnerID(ctx, testDB, owner.UserID)
+	require.NoError(t, err)
+	require.Len(t, got, 2, "should return exactly the owner's two accounts")
+
+	ids := []string{got[0].AccountID, got[1].AccountID}
+	assert.ElementsMatch(t, []string{a1.AccountID, a2.AccountID}, ids)
+	for _, a := range got {
+		assert.Equal(t, owner.UserID, a.OwnerID, "no other owner's account should leak")
+	}
+}
+
+func TestGetAccountsFromOwnerID_Empty(t *testing.T) {
+	truncateAll(t)
+	ctx := context.Background()
+
+	owner, err := CreateUser(ctx, testDB, "noaccounts@example.com")
+	require.NoError(t, err)
+
+	// No rows is not an error for a list query — expect an empty result,
+	// not sql.ErrNoRows.
+	got, err := GetAccountsFromOwnerID(ctx, testDB, owner.UserID)
+	require.NoError(t, err)
+	assert.Empty(t, got)
+}
+
 func TestUpdateAccountStatus(t *testing.T) {
 	truncateAll(t)
 	ctx := context.Background()

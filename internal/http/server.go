@@ -29,19 +29,24 @@ func NewServer(db *sql.DB, logger *slog.Logger) *Server {
 // routes wires every handler onto s.mux. Add registrations here as handlers land.
 func (s *Server) routes() {
 	s.mux.HandleFunc("POST /signup", s.signup)
-	s.mux.HandleFunc("POST /accounts", s.createAccount)
-	s.mux.HandleFunc("GET /accounts/{id}", s.getAccount)
-	s.mux.HandleFunc("GET /accounts/{id}/balance", s.getAccountBalance)
-	s.mux.HandleFunc("POST /accounts/{id}/close", s.closeAccount)
-	s.mux.HandleFunc("POST /accounts/{id}/freeze", s.freezeAccount)
-	s.mux.HandleFunc("POST /accounts/{id}/reopen", s.reopenAccount)
 
-	s.mux.HandleFunc("POST /transactions/transfer", s.cashTransfer)
-	s.mux.HandleFunc("POST /transactions/deposit", s.deposit)
-	s.mux.HandleFunc("POST /transactions/withdraw", s.withdraw)
-	s.mux.HandleFunc("POST /transactions/assess-fee", s.feeAssess)
-	s.mux.HandleFunc("POST /transactions/refund-fee", s.feeRefund)
-	s.mux.HandleFunc("POST /transactions/{id}/reverse", s.reverse)
+	protected := http.NewServeMux()
+	s.mux.Handle("/", s.authMiddleware(protected))
+
+	protected.HandleFunc("POST /accounts", s.createAccount)
+	protected.HandleFunc("GET /accounts", s.getAccounts)
+	protected.HandleFunc("GET /accounts/{id}/balance", s.getAccountBalance)
+	protected.HandleFunc("POST /accounts/{id}/close", s.closeAccount)
+	protected.HandleFunc("POST /accounts/{id}/freeze", s.freezeAccount)
+	protected.HandleFunc("POST /accounts/{id}/reopen", s.reopenAccount)
+
+	protected.HandleFunc("POST /transactions/transfer", s.cashTransfer)
+	protected.HandleFunc("POST /transactions/deposit", s.deposit)
+	protected.HandleFunc("POST /transactions/withdraw", s.withdraw)
+	protected.HandleFunc("POST /transactions/assess-fee", s.feeAssess)
+	protected.HandleFunc("POST /transactions/refund-fee", s.feeRefund)
+	protected.HandleFunc("POST /transactions/{id}/reverse", s.reverse)
+
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {

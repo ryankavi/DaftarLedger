@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/mail"
 	"strings"
+	"time"
 
 	"github.com/lib/pq"
 	errx "github.com/ryankavi/payclone/internal/errors"
@@ -80,6 +81,29 @@ func CreateAccount(ctx context.Context, database *sql.DB, ownerID string, accoun
 	}
 
 	return account, nil
+}
+
+func GetAccounts(ctx context.Context, database *sql.DB, ownerID string) ([]models.Account, error) {
+	accounts, err := repository.GetAccountsFromOwnerID(ctx, database, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	return accounts, nil
+}
+
+func GetAccountBalance(ctx context.Context, db *sql.DB, accountID string, asOf *time.Time) (int64, error) {
+	account, err := repository.GetAccount(ctx, db, accountID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, errx.ErrAccountNotFound
+		}
+		return 0, err
+	}
+	raw, err := repository.GetAccountBalance(ctx, db, accountID, asOf)
+	if err != nil {
+		return 0, err
+	}
+	return availableBalance(account.AccountType, raw), nil
 }
 
 func CloseAccount(ctx context.Context, database *sql.DB, accountID string) error {

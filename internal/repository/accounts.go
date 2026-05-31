@@ -54,6 +54,40 @@ func GetAccount(ctx context.Context, db DBTX, accountID string) (models.Account,
 	return a, nil
 }
 
+func GetAccountsFromOwnerID(ctx context.Context, db DBTX, ownerID string) ([]models.Account, error) {
+	const q = `
+		SELECT account_id, account_type, account_status, owner_id, currency, created_at
+		FROM accounts
+		WHERE owner_id = $1
+	`
+
+	rows, err := db.QueryContext(ctx, q, ownerID)
+	if err != nil {
+		return nil, fmt.Errorf("get accounts: %w", err)
+	}
+	defer rows.Close()
+
+	var accounts []models.Account
+	for rows.Next() {
+		var a models.Account
+		if err := rows.Scan(
+			&a.AccountID,
+			&a.AccountType,
+			&a.AccountStatus,
+			&a.OwnerID,
+			&a.Currency,
+			&a.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("get accounts: scan: %w", err)
+		}
+		accounts = append(accounts, a)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("get accounts: rows: %w", err)
+	}
+	return accounts, nil
+}
+
 // LockAccount acquires a row-level lock on the account for the duration
 // of the caller's transaction. Returns sql.ErrNoRows if the account does
 // not exist. MUST be called with *sql.Tx — passing *sql.DB acquires the
