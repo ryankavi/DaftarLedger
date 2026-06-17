@@ -30,13 +30,20 @@ func NewServer(db *sql.DB, logger *slog.Logger, authenticator *auth.Authenticato
 	return s
 }
 
-// routes wires every handler onto s.mux. Add registrations here as handlers land.
+// routes wires every handler onto an internal mux, then mounts that whole mux
+// under /api/ on s.mux. The API lives behind CloudFront's /api/* path routing;
+// StripPrefix removes /api before matching, so the handler patterns stay clean
+// (/signup, /accounts, …). Add registrations as handlers land.
 func (s *Server) routes() {
-	s.mux.HandleFunc("POST /signup", s.signup)
-	s.mux.HandleFunc("POST /login", s.login)
+	api := http.NewServeMux()
 
+	// Public routes — reachable without a token.
+	api.HandleFunc("POST /signup", s.signup)
+	api.HandleFunc("POST /login", s.login)
+
+	// Protected routes — register them all, then gate the whole group behind
+	// authMiddleware via the "/" catch-all (so it runs before any of them).
 	protected := http.NewServeMux()
-	s.mux.Handle("/", s.authMiddleware(protected))
 
 	protected.HandleFunc("POST /accounts", s.createAccount)
 	protected.HandleFunc("GET /accounts", s.getAccounts)
@@ -52,6 +59,11 @@ func (s *Server) routes() {
 	protected.HandleFunc("POST /transactions/refund-fee", s.feeRefund)
 	protected.HandleFunc("POST /transactions/{id}/reverse", s.reverse)
 
+	api.Handle("/", s.authMiddleware(protected))
+
+	// We mount the whole API under /api; StripPrefix strips it back off so the
+	// patterns above match.
+	s.mux.Handle("/api/", http.StripPrefix("/api", api))
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {

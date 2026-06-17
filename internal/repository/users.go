@@ -57,6 +57,24 @@ func GetUserByEmail(ctx context.Context, db DBTX, email string) (models.User, er
 	return u, nil
 }
 
+// UpsertAdmin ensures a user with the given email exists as an ADMIN with the
+// given password hash. Idempotent: on a re-run (or if the email already exists)
+// it promotes the row to ADMIN and resets the hash, so the email is treated as
+// operator-controlled — the bootstrap env vars are authoritative for it.
+func UpsertAdmin(ctx context.Context, db DBTX, email, passwordHash string) error {
+	const q = `
+		INSERT INTO users (email, password_hash, role)
+		VALUES ($1, $2, 'ADMIN')
+		ON CONFLICT (email)
+		DO UPDATE SET password_hash = EXCLUDED.password_hash, role = 'ADMIN'
+	`
+
+	if _, err := db.ExecContext(ctx, q, email, passwordHash); err != nil {
+		return fmt.Errorf("upsert admin: %w", err)
+	}
+	return nil
+}
+
 func UpdateUserEmail(ctx context.Context, db DBTX, userID string, newEmail string) (models.User, error) {
 	const q = `
 		UPDATE users

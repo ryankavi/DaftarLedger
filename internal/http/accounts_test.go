@@ -15,7 +15,7 @@ func TestCreateAccount_Happy(t *testing.T) {
 	srv := newTestServer(t)
 	_, token := seedUser(t, srv, "u@example.com", models.RoleUser)
 
-	rec := doJSON(t, srv, "POST", "/accounts", token, map[string]any{
+	rec := doJSON(t, srv, "POST", "/api/accounts", token, map[string]any{
 		"account_type": string(models.AccountUserCash),
 		"currency":     "USD",
 	})
@@ -27,7 +27,7 @@ func TestCreateAccount_NoToken(t *testing.T) {
 	truncateAll(t)
 	srv := newTestServer(t)
 
-	rec := doJSON(t, srv, "POST", "/accounts", "", map[string]any{
+	rec := doJSON(t, srv, "POST", "/api/accounts", "", map[string]any{
 		"account_type": string(models.AccountUserCash),
 		"currency":     "USD",
 	})
@@ -41,7 +41,7 @@ func TestGetAccounts_EmptyIsArray(t *testing.T) {
 	srv := newTestServer(t)
 	_, token := seedUser(t, srv, "u@example.com", models.RoleUser)
 
-	rec := doJSON(t, srv, "GET", "/accounts", token, nil)
+	rec := doJSON(t, srv, "GET", "/api/accounts", token, nil)
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Contains(t, rec.Body.String(), `"accounts":[]`)
@@ -56,7 +56,7 @@ func TestGetAccounts_OnlyOwn(t *testing.T) {
 	other := createUser(t, "other@example.com", models.RoleUser)
 	seedAccount(t, other, models.AccountUserCash, "USD")
 
-	rec := doJSON(t, srv, "GET", "/accounts", token, nil)
+	rec := doJSON(t, srv, "GET", "/api/accounts", token, nil)
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	var resp getAccountsResponse
@@ -70,7 +70,7 @@ func TestGetAccountBalance_Owner(t *testing.T) {
 	owner, token := seedUser(t, srv, "owner@example.com", models.RoleUser)
 	acct := seedAccount(t, owner, models.AccountUserCash, "USD")
 
-	rec := doJSON(t, srv, "GET", "/accounts/"+acct.AccountID+"/balance", token, nil)
+	rec := doJSON(t, srv, "GET", "/api/accounts/"+acct.AccountID+"/balance", token, nil)
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	var resp accountBalanceResponse
@@ -85,7 +85,7 @@ func TestGetAccountBalance_NonOwnerForbidden(t *testing.T) {
 	acct := seedAccount(t, owner, models.AccountUserCash, "USD")
 	_, otherToken := seedUser(t, srv, "other@example.com", models.RoleUser)
 
-	rec := doJSON(t, srv, "GET", "/accounts/"+acct.AccountID+"/balance", otherToken, nil)
+	rec := doJSON(t, srv, "GET", "/api/accounts/"+acct.AccountID+"/balance", otherToken, nil)
 
 	require.Equal(t, http.StatusForbidden, rec.Code)
 }
@@ -96,7 +96,7 @@ func TestCloseAccount_Owner(t *testing.T) {
 	owner, token := seedUser(t, srv, "owner@example.com", models.RoleUser)
 	acct := seedAccount(t, owner, models.AccountUserCash, "USD") // zero balance
 
-	rec := doJSON(t, srv, "POST", "/accounts/"+acct.AccountID+"/close", token, nil)
+	rec := doJSON(t, srv, "POST", "/api/accounts/"+acct.AccountID+"/close", token, nil)
 
 	require.Equal(t, http.StatusNoContent, rec.Code)
 	require.Empty(t, rec.Body.String(), "204 carries no body")
@@ -109,7 +109,7 @@ func TestCloseAccount_NonOwnerForbidden(t *testing.T) {
 	acct := seedAccount(t, owner, models.AccountUserCash, "USD")
 	_, otherToken := seedUser(t, srv, "other@example.com", models.RoleUser)
 
-	rec := doJSON(t, srv, "POST", "/accounts/"+acct.AccountID+"/close", otherToken, nil)
+	rec := doJSON(t, srv, "POST", "/api/accounts/"+acct.AccountID+"/close", otherToken, nil)
 
 	require.Equal(t, http.StatusForbidden, rec.Code)
 }
@@ -120,7 +120,7 @@ func TestFreezeAccount_Owner(t *testing.T) {
 	owner, token := seedUser(t, srv, "owner@example.com", models.RoleUser)
 	acct := seedAccount(t, owner, models.AccountUserCash, "USD")
 
-	rec := doJSON(t, srv, "POST", "/accounts/"+acct.AccountID+"/freeze", token, nil)
+	rec := doJSON(t, srv, "POST", "/api/accounts/"+acct.AccountID+"/freeze", token, nil)
 
 	require.Equal(t, http.StatusNoContent, rec.Code)
 }
@@ -133,9 +133,9 @@ func TestReopenAccount_Owner(t *testing.T) {
 
 	// Must be FROZEN before it can be reopened.
 	require.Equal(t, http.StatusNoContent,
-		doJSON(t, srv, "POST", "/accounts/"+acct.AccountID+"/freeze", token, nil).Code)
+		doJSON(t, srv, "POST", "/api/accounts/"+acct.AccountID+"/freeze", token, nil).Code)
 
-	rec := doJSON(t, srv, "POST", "/accounts/"+acct.AccountID+"/reopen", token, nil)
+	rec := doJSON(t, srv, "POST", "/api/accounts/"+acct.AccountID+"/reopen", token, nil)
 
 	require.Equal(t, http.StatusNoContent, rec.Code)
 }
@@ -147,7 +147,7 @@ func TestReopenAccount_NotFrozen(t *testing.T) {
 	owner, token := seedUser(t, srv, "owner@example.com", models.RoleUser)
 	acct := seedAccount(t, owner, models.AccountUserCash, "USD") // OPEN, not frozen
 
-	rec := doJSON(t, srv, "POST", "/accounts/"+acct.AccountID+"/reopen", token, nil)
+	rec := doJSON(t, srv, "POST", "/api/accounts/"+acct.AccountID+"/reopen", token, nil)
 
 	require.Equal(t, http.StatusUnprocessableEntity, rec.Code)
 }

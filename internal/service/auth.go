@@ -33,3 +33,16 @@ func Login(ctx context.Context, database *sql.DB, email, password string) (model
 
 	return user, nil
 }
+
+// EnsureAdmin idempotently ensures an admin account with the given credentials
+// exists. Called at startup from main when BOOTSTRAP_ADMIN_* are set — the
+// system has no other way to mint an admin (signup only creates RoleUser). The
+// password is bcrypt-hashed here, the same as signup, so the admin can log in
+// through the normal /login flow.
+func EnsureAdmin(ctx context.Context, database *sql.DB, email, password string) error {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("hash admin password: %w", err)
+	}
+	return repository.UpsertAdmin(ctx, database, email, string(hash))
+}

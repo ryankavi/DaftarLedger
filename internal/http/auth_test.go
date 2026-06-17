@@ -23,7 +23,7 @@ func TestSignup_Happy(t *testing.T) {
 	truncateAll(t)
 	srv := newTestServer(t)
 
-	rec := doJSON(t, srv, "POST", "/signup", "", signupBody("new@example.com", "password123"))
+	rec := doJSON(t, srv, "POST", "/api/signup", "", signupBody("new@example.com", "password123"))
 
 	require.Equal(t, http.StatusCreated, rec.Code)
 	var resp signupResponse
@@ -37,7 +37,7 @@ func TestSignup_PasswordTooShort(t *testing.T) {
 	truncateAll(t)
 	srv := newTestServer(t)
 
-	rec := doJSON(t, srv, "POST", "/signup", "", signupBody("short@example.com", "short"))
+	rec := doJSON(t, srv, "POST", "/api/signup", "", signupBody("short@example.com", "short"))
 
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 }
@@ -48,9 +48,9 @@ func TestLogin_Happy(t *testing.T) {
 
 	// Sign up so the user exists with a real bcrypt hash.
 	require.Equal(t, http.StatusCreated,
-		doJSON(t, srv, "POST", "/signup", "", signupBody("log@example.com", "password123")).Code)
+		doJSON(t, srv, "POST", "/api/signup", "", signupBody("log@example.com", "password123")).Code)
 
-	rec := doJSON(t, srv, "POST", "/login", "", map[string]any{
+	rec := doJSON(t, srv, "POST", "/api/login", "", map[string]any{
 		"email":    "log@example.com",
 		"password": "password123",
 	})
@@ -66,9 +66,9 @@ func TestLogin_WrongPassword(t *testing.T) {
 	srv := newTestServer(t)
 
 	require.Equal(t, http.StatusCreated,
-		doJSON(t, srv, "POST", "/signup", "", signupBody("log@example.com", "password123")).Code)
+		doJSON(t, srv, "POST", "/api/signup", "", signupBody("log@example.com", "password123")).Code)
 
-	rec := doJSON(t, srv, "POST", "/login", "", map[string]any{
+	rec := doJSON(t, srv, "POST", "/api/login", "", map[string]any{
 		"email":    "log@example.com",
 		"password": "wrong-password",
 	})
@@ -81,7 +81,7 @@ func TestLogin_UnknownEmail(t *testing.T) {
 	truncateAll(t)
 	srv := newTestServer(t)
 
-	rec := doJSON(t, srv, "POST", "/login", "", map[string]any{
+	rec := doJSON(t, srv, "POST", "/api/login", "", map[string]any{
 		"email":    "nobody@example.com",
 		"password": "password123",
 	})
@@ -94,7 +94,7 @@ func TestProtected_InvalidToken(t *testing.T) {
 	truncateAll(t)
 	srv := newTestServer(t)
 
-	rec := doJSON(t, srv, "GET", "/accounts", "not-a-real-jwt", nil)
+	rec := doJSON(t, srv, "GET", "/api/accounts", "not-a-real-jwt", nil)
 
 	require.Equal(t, http.StatusUnauthorized, rec.Code)
 }

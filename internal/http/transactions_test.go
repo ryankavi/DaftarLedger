@@ -30,7 +30,7 @@ func TestTransfer_Happy(t *testing.T) {
 	receiver := createUser(t, "receiver@example.com", models.RoleUser)
 	to := seedAccount(t, receiver, models.AccountUserCash, "USD")
 
-	rec := doJSON(t, srv, "POST", "/transactions/transfer", token,
+	rec := doJSON(t, srv, "POST", "/api/transactions/transfer", token,
 		transactionBody(from.AccountID, to.AccountID, 500, "USD", "idem-transfer"))
 
 	require.Equal(t, http.StatusCreated, rec.Code)
@@ -46,7 +46,7 @@ func TestTransfer_NotOwnerForbidden(t *testing.T) {
 	to := seedAccount(t, receiver, models.AccountUserCash, "USD")
 	_, attackerToken := seedUser(t, srv, "attacker@example.com", models.RoleUser)
 
-	rec := doJSON(t, srv, "POST", "/transactions/transfer", attackerToken,
+	rec := doJSON(t, srv, "POST", "/api/transactions/transfer", attackerToken,
 		transactionBody(from.AccountID, to.AccountID, 500, "USD", "idem-steal"))
 
 	require.Equal(t, http.StatusForbidden, rec.Code)
@@ -61,7 +61,7 @@ func TestWithdraw_Happy(t *testing.T) {
 	extOwner := createUser(t, "ext@example.com", models.RoleUser)
 	ext := seedAccount(t, extOwner, models.AccountExternal, "USD")
 
-	rec := doJSON(t, srv, "POST", "/transactions/withdraw", token,
+	rec := doJSON(t, srv, "POST", "/api/transactions/withdraw", token,
 		transactionBody(from.AccountID, ext.AccountID, 500, "USD", "idem-withdraw"))
 
 	require.Equal(t, http.StatusCreated, rec.Code)
@@ -76,7 +76,7 @@ func TestWithdraw_InsufficientFunds(t *testing.T) {
 	extOwner := createUser(t, "ext@example.com", models.RoleUser)
 	ext := seedAccount(t, extOwner, models.AccountExternal, "USD")
 
-	rec := doJSON(t, srv, "POST", "/transactions/withdraw", token,
+	rec := doJSON(t, srv, "POST", "/api/transactions/withdraw", token,
 		transactionBody(from.AccountID, ext.AccountID, 500, "USD", "idem-withdraw-broke"))
 
 	require.Equal(t, http.StatusUnprocessableEntity, rec.Code)
@@ -91,7 +91,7 @@ func TestDeposit_Admin(t *testing.T) {
 	extOwner := createUser(t, "ext@example.com", models.RoleUser)
 	ext := seedAccount(t, extOwner, models.AccountExternal, "USD")
 
-	rec := doJSON(t, srv, "POST", "/transactions/deposit", adminToken,
+	rec := doJSON(t, srv, "POST", "/api/transactions/deposit", adminToken,
 		transactionBody(ext.AccountID, to.AccountID, 1000, "USD", "idem-deposit"))
 
 	require.Equal(t, http.StatusCreated, rec.Code)
@@ -104,7 +104,7 @@ func TestDeposit_NonAdminForbidden(t *testing.T) {
 	srv := newTestServer(t)
 	_, userToken := seedUser(t, srv, "u@example.com", models.RoleUser)
 
-	rec := doJSON(t, srv, "POST", "/transactions/deposit", userToken,
+	rec := doJSON(t, srv, "POST", "/api/transactions/deposit", userToken,
 		transactionBody("from-id", "to-id", 1000, "USD", "idem-deposit-user"))
 
 	require.Equal(t, http.StatusForbidden, rec.Code)
@@ -120,7 +120,7 @@ func TestAssessFee_Admin(t *testing.T) {
 	feeOwner := createUser(t, "fee@example.com", models.RoleUser)
 	fee := seedAccount(t, feeOwner, models.AccountFeeRevenue, "USD")
 
-	rec := doJSON(t, srv, "POST", "/transactions/assess-fee", adminToken,
+	rec := doJSON(t, srv, "POST", "/api/transactions/assess-fee", adminToken,
 		transactionBody(from.AccountID, fee.AccountID, 100, "USD", "idem-fee"))
 
 	require.Equal(t, http.StatusCreated, rec.Code)
@@ -131,7 +131,7 @@ func TestAssessFee_NonAdminForbidden(t *testing.T) {
 	srv := newTestServer(t)
 	_, userToken := seedUser(t, srv, "u@example.com", models.RoleUser)
 
-	rec := doJSON(t, srv, "POST", "/transactions/assess-fee", userToken,
+	rec := doJSON(t, srv, "POST", "/api/transactions/assess-fee", userToken,
 		transactionBody("from-id", "to-id", 100, "USD", "idem-fee-user"))
 
 	require.Equal(t, http.StatusForbidden, rec.Code)
@@ -146,7 +146,7 @@ func TestRefundFee_Admin(t *testing.T) {
 	user := createUser(t, "u@example.com", models.RoleUser)
 	to := seedAccount(t, user, models.AccountUserCash, "USD")
 
-	rec := doJSON(t, srv, "POST", "/transactions/refund-fee", adminToken,
+	rec := doJSON(t, srv, "POST", "/api/transactions/refund-fee", adminToken,
 		transactionBody(fee.AccountID, to.AccountID, 100, "USD", "idem-refund"))
 
 	require.Equal(t, http.StatusCreated, rec.Code)
@@ -157,7 +157,7 @@ func TestRefundFee_NonAdminForbidden(t *testing.T) {
 	srv := newTestServer(t)
 	_, userToken := seedUser(t, srv, "u@example.com", models.RoleUser)
 
-	rec := doJSON(t, srv, "POST", "/transactions/refund-fee", userToken,
+	rec := doJSON(t, srv, "POST", "/api/transactions/refund-fee", userToken,
 		transactionBody("from-id", "to-id", 100, "USD", "idem-refund-user"))
 
 	require.Equal(t, http.StatusForbidden, rec.Code)
@@ -182,7 +182,7 @@ func TestReverse_Admin(t *testing.T) {
 	}, service.PostDeposit)
 	require.NoError(t, err)
 
-	rec := doJSON(t, srv, "POST", "/transactions/"+txn.TransactionID+"/reverse", adminToken,
+	rec := doJSON(t, srv, "POST", "/api/transactions/"+txn.TransactionID+"/reverse", adminToken,
 		map[string]any{"idempotency_key": "rev-1"})
 
 	require.Equal(t, http.StatusCreated, rec.Code)
@@ -194,7 +194,7 @@ func TestReverse_NonAdminForbidden(t *testing.T) {
 	srv := newTestServer(t)
 	_, userToken := seedUser(t, srv, "u@example.com", models.RoleUser)
 
-	rec := doJSON(t, srv, "POST", "/transactions/some-id/reverse", userToken,
+	rec := doJSON(t, srv, "POST", "/api/transactions/some-id/reverse", userToken,
 		map[string]any{"idempotency_key": "rev-user"})
 
 	require.Equal(t, http.StatusForbidden, rec.Code)
