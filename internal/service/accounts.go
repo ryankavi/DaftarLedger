@@ -13,10 +13,12 @@ import (
 	errx "github.com/ryankavi/payclone/internal/errors"
 	"github.com/ryankavi/payclone/internal/models"
 	"github.com/ryankavi/payclone/internal/repository"
+	"golang.org/x/crypto/bcrypt"
 )
 
-// Signup, no auth required
-func CreateUserWithAccount(ctx context.Context, database *sql.DB, email string, accountType string, currency string) (models.Account, error) {
+// Signup, no auth required. password is plaintext; it is bcrypt-hashed here
+// before the row is written — the plaintext never leaves this function.
+func CreateUserWithAccount(ctx context.Context, database *sql.DB, email string, password string, accountType string, currency string) (models.Account, error) {
 
 	tx, err := database.BeginTx(ctx, nil)
 	if err != nil {
@@ -29,7 +31,12 @@ func CreateUserWithAccount(ctx context.Context, database *sql.DB, email string, 
 		return models.Account{}, errx.ErrInvalidEmail
 	}
 
-	user, err := repository.CreateUser(ctx, tx, email)
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return models.Account{}, fmt.Errorf("hash password: %w", err)
+	}
+
+	user, err := repository.CreateUser(ctx, tx, email, string(hash))
 	if err != nil {
 		var pqErr *pq.Error
 		if errors.As(err, &pqErr) && pqErr.Code == "23505" {

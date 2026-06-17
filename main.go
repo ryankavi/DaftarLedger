@@ -12,11 +12,16 @@ import (
 	"time"
 
 	_ "github.com/lib/pq"
+	"github.com/ryankavi/payclone/internal/auth"
 	"github.com/ryankavi/payclone/internal/db"
 	httpapi "github.com/ryankavi/payclone/internal/http"
 )
 
 const SHUTDOWN_TIMEOUT = 10 * time.Second
+
+// TOKEN_TTL is the access-token lifetime. Kept short on purpose: tokens are
+// stateless with no revocation, so a stolen token is valid until it expires.
+const TOKEN_TTL = 15 * time.Minute
 
 func main() {
 	// Use port 5433 to avoid conflict with native Postgres on 5432; Docker: -p 5433:5432
@@ -36,10 +41,17 @@ func main() {
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
+	// Fail fast: the server must not boot able to mint/verify tokens with an
+	// empty signing key. auth.New returns ErrEmptySecret when JWT_SECRET is unset.
+	authenticator, err := auth.New(os.Getenv("JWT_SECRET"), TOKEN_TTL)
+	if err != nil {
+		log.Fatalf("auth init: %s", err)
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	srv := httpapi.NewServer(database, logger)
+	srv := httpapi.NewServer(database, logger, authenticator)
 	if err := srv.Run(ctx, ":8080", SHUTDOWN_TIMEOUT); err != nil && !errors.Is(err, context.Canceled) {
 		log.Fatalf("http run: %s", err)
 	}

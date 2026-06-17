@@ -36,10 +36,19 @@ const (
 	StatusReversed TransactionStatus = "REVERSED"
 )
 
+type UserRole string
+
+const (
+	RoleUser  UserRole = "USER"
+	RoleAdmin UserRole = "ADMIN"
+)
+
 type User struct {
-	UserID    string
-	Email     string
-	CreatedAt time.Time
+	UserID       string
+	Email        string
+	PasswordHash string
+	Role         UserRole
+	CreatedAt    time.Time
 }
 
 type Account struct {

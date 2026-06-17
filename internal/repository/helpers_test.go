@@ -13,7 +13,7 @@ import (
 // caller's responsibility — pass a distinct value per call within a test.
 func seedAccount(t *testing.T, ctx context.Context, email string, accountType models.AccountType) models.Account {
 	t.Helper()
-	u, err := CreateUser(ctx, testDB, email)
+	u, err := CreateUser(ctx, testDB, email, "hashed-pw")
 	require.NoError(t, err)
 	a, err := CreateAccount(ctx, testDB, u.UserID, accountType, "USD")
 	require.NoError(t, err)

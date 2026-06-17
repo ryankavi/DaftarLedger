@@ -8,18 +8,22 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/ryankavi/payclone/internal/auth"
 )
 
 type Server struct {
 	db     *sql.DB
 	logger *slog.Logger
+	auth   *auth.Authenticator
 	mux    *http.ServeMux
 }
 
-func NewServer(db *sql.DB, logger *slog.Logger) *Server {
+func NewServer(db *sql.DB, logger *slog.Logger, authenticator *auth.Authenticator) *Server {
 	s := &Server{
 		db:     db,
 		logger: logger,
+		auth:   authenticator,
 		mux:    http.NewServeMux(),
 	}
 	s.routes()
@@ -29,6 +33,7 @@ func NewServer(db *sql.DB, logger *slog.Logger) *Server {
 // routes wires every handler onto s.mux. Add registrations here as handlers land.
 func (s *Server) routes() {
 	s.mux.HandleFunc("POST /signup", s.signup)
+	s.mux.HandleFunc("POST /login", s.login)
 
 	protected := http.NewServeMux()
 	s.mux.Handle("/", s.authMiddleware(protected))

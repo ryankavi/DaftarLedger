@@ -20,6 +20,8 @@ func toHTTPStatus(err error) int {
 		errors.Is(err, errx.ErrCurrencyMismatch),
 		errors.Is(err, errx.ErrInvalidEmail):
 		return http.StatusBadRequest // 400
+	case errors.Is(err, errx.ErrInvalidCredentials):
+		return http.StatusUnauthorized // 401
 	case errors.Is(err, errx.ErrForbidden):
 		return http.StatusForbidden // 403
 	case errors.Is(err, errx.ErrAccountNotFound),

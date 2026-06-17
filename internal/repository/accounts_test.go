@@ -21,7 +21,7 @@ func TestCreateAccount(t *testing.T) {
 	truncateAll(t)
 	ctx := context.Background()
 
-	u, err := CreateUser(ctx, testDB, "owner@example.com")
+	u, err := CreateUser(ctx, testDB, "owner@example.com", "hashed-pw")
 	require.NoError(t, err)
 
 	got, err := CreateAccount(ctx, testDB, u.UserID, models.AccountUserCash, "USD")
@@ -51,7 +51,7 @@ func TestGetAccountsFromOwnerID(t *testing.T) {
 	truncateAll(t)
 	ctx := context.Background()
 
-	owner, err := CreateUser(ctx, testDB, "multi@example.com")
+	owner, err := CreateUser(ctx, testDB, "multi@example.com", "hashed-pw")
 	require.NoError(t, err)
 
 	// Two accounts for the same owner; distinct types to satisfy
@@ -62,7 +62,7 @@ func TestGetAccountsFromOwnerID(t *testing.T) {
 	require.NoError(t, err)
 
 	// A different owner's account must not leak into the result.
-	other, err := CreateUser(ctx, testDB, "other@example.com")
+	other, err := CreateUser(ctx, testDB, "other@example.com", "hashed-pw")
 	require.NoError(t, err)
 	_, err = CreateAccount(ctx, testDB, other.UserID, models.AccountUserCash, "USD")
 	require.NoError(t, err)
@@ -82,7 +82,7 @@ func TestGetAccountsFromOwnerID_Empty(t *testing.T) {
 	truncateAll(t)
 	ctx := context.Background()
 
-	owner, err := CreateUser(ctx, testDB, "noaccounts@example.com")
+	owner, err := CreateUser(ctx, testDB, "noaccounts@example.com", "hashed-pw")
 	require.NoError(t, err)
 
 	// No rows is not an error for a list query — expect an empty result,
@@ -96,7 +96,7 @@ func TestUpdateAccountStatus(t *testing.T) {
 	truncateAll(t)
 	ctx := context.Background()
 
-	u, err := CreateUser(ctx, testDB, "update@example.com")
+	u, err := CreateUser(ctx, testDB, "update@example.com", "hashed-pw")
 	require.NoError(t, err)
 	a, err := CreateAccount(ctx, testDB, u.UserID, models.AccountUserCash, "USD")
 	require.NoError(t, err)
@@ -124,7 +124,7 @@ func TestLockAccount_Clean(t *testing.T) {
 	truncateAll(t)
 	ctx := context.Background()
 
-	u, err := CreateUser(ctx, testDB, "lock-ok@example.com")
+	u, err := CreateUser(ctx, testDB, "lock-ok@example.com", "hashed-pw")
 	require.NoError(t, err)
 	a, err := CreateAccount(ctx, testDB, u.UserID, models.AccountUserCash, "USD")
 	require.NoError(t, err)
@@ -156,7 +156,7 @@ func TestLockAccount_BlocksConcurrentLock(t *testing.T) {
 	truncateAll(t)
 	ctx := context.Background()
 
-	u, err := CreateUser(ctx, testDB, "lock-contend@example.com")
+	u, err := CreateUser(ctx, testDB, "lock-contend@example.com", "hashed-pw")
 	require.NoError(t, err)
 	a, err := CreateAccount(ctx, testDB, u.UserID, models.AccountUserCash, "USD")
 	require.NoError(t, err)

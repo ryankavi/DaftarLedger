@@ -21,7 +21,7 @@ func TestCreateUser(t *testing.T) {
 
 	const userEmail = "user@example.com"
 
-	u, err := CreateUser(ctx, testDB, userEmail)
+	u, err := CreateUser(ctx, testDB, userEmail, "hashed-pw")
 	require.NoError(t, err)
 
 	assert.NotEmpty(t, u.UserID, "UserID should be DB-generated UUID")
@@ -35,10 +35,10 @@ func TestCreateUser_DuplicateEmail(t *testing.T) {
 
 	const userEmail = "dup@example.com"
 
-	_, err := CreateUser(ctx, testDB, userEmail)
+	_, err := CreateUser(ctx, testDB, userEmail, "hashed-pw")
 	require.NoError(t, err)
 
-	_, err = CreateUser(ctx, testDB, userEmail)
+	_, err = CreateUser(ctx, testDB, userEmail, "hashed-pw")
 	require.Error(t, err, "duplicate email insert should fail UNIQUE constraint")
 
 	var pqErr *pq.Error
@@ -52,7 +52,7 @@ func TestGetUser(t *testing.T) {
 
 	const userEmail = "user@example.com"
 
-	u, err := CreateUser(ctx, testDB, userEmail)
+	u, err := CreateUser(ctx, testDB, userEmail, "hashed-pw")
 	require.NoError(t, err)
 
 	got, err := GetUser(ctx, testDB, u.UserID)
@@ -76,7 +76,7 @@ func TestUpdateUserEmail(t *testing.T) {
 	const userEmail = "user@example.com"
 	const newUserEmail = "new-user@example.com"
 
-	u, err := CreateUser(ctx, testDB, userEmail)
+	u, err := CreateUser(ctx, testDB, userEmail, "hashed-pw")
 	require.NoError(t, err)
 
 	updated, err := UpdateUserEmail(ctx, testDB, u.UserID, newUserEmail)
@@ -101,7 +101,7 @@ func TestDeleteUser(t *testing.T) {
 	truncateAll(t)
 	ctx := context.Background()
 
-	u, err := CreateUser(ctx, testDB, "delete-me@example.com")
+	u, err := CreateUser(ctx, testDB, "delete-me@example.com", "hashed-pw")
 	require.NoError(t, err)
 
 	err = DeleteUser(ctx, testDB, u.UserID)

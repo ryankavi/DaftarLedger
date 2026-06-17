@@ -14,7 +14,7 @@ import (
 // caller's responsibility.
 func seedUser(t *testing.T, ctx context.Context, email string) models.User {
 	t.Helper()
-	u, err := repository.CreateUser(ctx, testDB, email)
+	u, err := repository.CreateUser(ctx, testDB, email, "hashed-pw")
 	require.NoError(t, err)
 	return u
 }

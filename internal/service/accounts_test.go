@@ -40,7 +40,7 @@ func TestCreateUserWithAccount_UnauthenticatedHappy(t *testing.T) {
 	truncateAll(t)
 	ctx := context.Background()
 
-	a, err := CreateUserWithAccount(ctx, testDB, "new@example.com", string(models.AccountUserCash), "USD")
+	a, err := CreateUserWithAccount(ctx, testDB, "new@example.com", "password123", string(models.AccountUserCash), "USD")
 	require.NoError(t, err)
 	assert.NotEmpty(t, a.AccountID)
 	assert.Equal(t, models.AccountUserCash, a.AccountType)
@@ -52,7 +52,7 @@ func TestCreateUserWithAccount_InvalidEmail(t *testing.T) {
 	truncateAll(t)
 	ctx := context.Background()
 
-	_, err := CreateUserWithAccount(ctx, testDB, "not-an-email", string(models.AccountUserCash), "USD")
+	_, err := CreateUserWithAccount(ctx, testDB, "not-an-email", "password123", string(models.AccountUserCash), "USD")
 	require.ErrorIs(t, err, errx.ErrInvalidEmail)
 }
 
@@ -60,10 +60,10 @@ func TestCreateUserWithAccount_EmailTaken(t *testing.T) {
 	truncateAll(t)
 	ctx := context.Background()
 
-	_, err := CreateUserWithAccount(ctx, testDB, "dup@example.com", string(models.AccountUserCash), "USD")
+	_, err := CreateUserWithAccount(ctx, testDB, "dup@example.com", "password123", string(models.AccountUserCash), "USD")
 	require.NoError(t, err)
 
-	_, err = CreateUserWithAccount(ctx, testDB, "dup@example.com", string(models.AccountUserCash), "USD")
+	_, err = CreateUserWithAccount(ctx, testDB, "dup@example.com", "password123", string(models.AccountUserCash), "USD")
 	require.ErrorIs(t, err, errx.ErrEmailTaken)
 }
 

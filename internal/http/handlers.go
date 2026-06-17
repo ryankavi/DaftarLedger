@@ -18,14 +18,30 @@ import (
 
 type signupRequest struct {
 	Email       string `json:"email"`
+	Password    string `json:"password"`
 	AccountType string `json:"account_type"`
 	Currency    string `json:"currency"`
 }
+
+// minPasswordLen is the edge-validated floor on signup passwords. bcrypt
+// silently truncates beyond 72 bytes; we don't cap here, that's a separate
+// concern.
+const minPasswordLen = 8
 
 type signupResponse struct {
 	AccountID   string `json:"account_id"`
 	AccountType string `json:"account_type"`
 	Currency    string `json:"currency"`
+	Token       string `json:"token"`
+}
+
+type loginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type loginResponse struct {
+	Token string `json:"token"`
 }
 
 func (s *Server) signup(w http.ResponseWriter, r *http.Request) {
@@ -37,9 +53,23 @@ func (s *Server) signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	account, err := service.CreateUserWithAccount(r.Context(), s.db, req.Email, req.AccountType, req.Currency)
+	if len(req.Password) < minPasswordLen {
+		http.Error(w, "password too short", http.StatusBadRequest)
+		return
+	}
+
+	account, err := service.CreateUserWithAccount(r.Context(), s.db, req.Email, req.Password, req.AccountType, req.Currency)
 	if err != nil {
 		writeError(w, s.logger, "signup failed", err)
+		return
+	}
+
+	// A fresh signup is always RoleUser (the migration's default; signup never
+	// creates admins). account.OwnerID is the new user's id. Issue a token so
+	// the client is authenticated immediately without a second /login round-trip.
+	token, err := s.auth.Sign(account.OwnerID, models.RoleUser)
+	if err != nil {
+		writeError(w, s.logger, "signup token", err)
 		return
 	}
 
@@ -47,12 +77,45 @@ func (s *Server) signup(w http.ResponseWriter, r *http.Request) {
 		AccountID:   account.AccountID,
 		AccountType: string(account.AccountType),
 		Currency:    account.Currency,
+		Token:       token,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		s.logger.Error("encode signup response", "err", err)
+	}
+}
+
+// login authenticates an existing user and returns a bearer token. Public
+// route (registered outside authMiddleware) — you can't have a token yet.
+func (s *Server) login(w http.ResponseWriter, r *http.Request) {
+	var req loginRequest
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Login returns the same ErrInvalidCredentials for unknown-email and
+	// wrong-password → toHTTPStatus maps it to a generic 401.
+	user, err := service.Login(r.Context(), s.db, req.Email, req.Password)
+	if err != nil {
+		writeError(w, s.logger, "login failed", err)
+		return
+	}
+
+	token, err := s.auth.Sign(user.UserID, user.Role)
+	if err != nil {
+		writeError(w, s.logger, "login token", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(loginResponse{Token: token}); err != nil {
+		s.logger.Error("encode login response", "err", err)
 	}
 }
 
@@ -405,14 +468,12 @@ func (s *Server) assertOwns(ctx context.Context, accountID string) error {
 	return nil
 }
 
+// isAdmin reports whether the caller holds the admin role. The role comes from
+// the verified token (placed in ctx by authMiddleware).
 func (s *Server) isAdmin(ctx context.Context) bool {
-	userId, ok := UserIDFromCtx(ctx)
+	role, ok := RoleFromCtx(ctx)
 	if !ok {
-		// no user id in context
 		return false
 	}
-	if userId != "ADMIN_USER" {
-		return false
-	}
-	return true
+	return role == models.RoleAdmin
 }

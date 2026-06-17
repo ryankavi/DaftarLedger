@@ -18,12 +18,14 @@ go vet ./...
 gofmt -w .
 ```
 
-Tests (none exist yet; `-run` filters a single test by name once added):
+Tests (testcontainers spins up a real Postgres per package — Docker must be running):
 
 ```bash
-go test ./...
+go test -p 1 ./...
 go test ./internal/repository -run TestName
 ```
+
+Use `-p 1` for the full suite. It serializes package test binaries so only one Postgres container starts at a time. Plain `go test ./...` runs the container-using packages (`repository`, `service`, `http`) in parallel, and Docker Desktop on Windows intermittently fails testcontainers' provider init under that concurrency (`rootless Docker is not supported on Windows`). A single package (e.g. `-run TestName` against one package) doesn't need `-p 1`.
 
 ## Database (Postgres 16 in Docker, port 5433)
 
