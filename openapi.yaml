@@ -1,0 +1,735 @@
+openapi: 3.0.3
+info:
+  title: PayClone API
+  version: 0.1.0
+  license:
+    name: Proprietary
+  description: |
+    Double-entry ledger service. All amounts are integer **minor units** (e.g.
+    cents), never floats. All routes are served under the `/api` prefix.
+
+    ## Authentication
+    Obtain a token from `POST /signup` or `POST /login`, then send it on every
+    protected route as `Authorization: Bearer <token>`. Tokens are stateless
+    HS256 JWTs with a short TTL (15m default) — there is no server-side logout
+    or refresh; drop the token client-side to "log out", and re-authenticate
+    once it expires (protected routes return `401`).
+
+    ## Errors
+    Error responses are **plain text** (`text/plain`), not JSON — the body is a
+    short human-readable message. `5xx` bodies are masked to `internal error`.
+servers:
+  - url: /api
+    description: API root (mounted under /api via StripPrefix)
+
+tags:
+  - name: Auth
+    description: Signup and login — the only public routes.
+  - name: Accounts
+    description: Account creation, listing, balance, and lifecycle.
+  - name: Transactions
+    description: Ledger postings. Each creates a balanced debit/credit pair.
+
+paths:
+  /signup:
+    post:
+      tags: [Auth]
+      operationId: signup
+      summary: Create a user + their first account, returns a token
+      description: Public. Always creates a `USER` role. Issues a token so the client is authenticated immediately.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignupResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Email already taken, or this owner already has an account of this type.
+          content:
+            text/plain:
+              schema: { type: string }
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /login:
+    post:
+      tags: [Auth]
+      operationId: login
+      summary: Authenticate an existing user, returns a token
+      description: Public. Unknown email and wrong password both return the same generic `401` (no account enumeration).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Invalid credentials (generic — does not distinguish unknown email from wrong password).
+          content:
+            text/plain:
+              schema: { type: string }
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /accounts:
+    post:
+      tags: [Accounts]
+      operationId: createAccount
+      summary: Create an additional account for the authenticated user
+      description: Owner is taken from the token, never the request body. Returns the same shape as signup but with an empty `token` field.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAccountRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignupResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: This owner already has an account of this type.
+          content:
+            text/plain:
+              schema: { type: string }
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      tags: [Accounts]
+      operationId: listAccounts
+      summary: List the authenticated user's accounts
+      responses:
+        '200':
+          description: OK. `accounts` is `[]` (never null) when empty.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetAccountsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /accounts/{id}/balance:
+    get:
+      tags: [Accounts]
+      operationId: getAccountBalance
+      summary: Get an account's balance (minor units)
+      description: Caller must own the account. Balance is net of all entries; optionally as of a point in time.
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - name: as_of
+          in: query
+          required: false
+          description: RFC3339 timestamp. Absent means current balance.
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountBalanceResponse'
+        '400':
+          description: '`as_of` is present but not valid RFC3339.'
+          content:
+            text/plain:
+              schema: { type: string }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /accounts/{id}/close:
+    post:
+      tags: [Accounts]
+      operationId: closeAccount
+      summary: Close an account
+      description: Caller must own the account. Balance must be zero. `CLOSED` is terminal.
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Balance is not zero.
+          content:
+            text/plain:
+              schema: { type: string }
+        '422':
+          description: Account already closed.
+          content:
+            text/plain:
+              schema: { type: string }
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /accounts/{id}/freeze:
+    post:
+      tags: [Accounts]
+      operationId: freezeAccount
+      summary: Freeze an account
+      description: Caller must own the account. Only an `OPEN` account can be frozen.
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          description: Account is not OPEN.
+          content:
+            text/plain:
+              schema: { type: string }
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /accounts/{id}/reopen:
+    post:
+      tags: [Accounts]
+      operationId: reopenAccount
+      summary: Reopen a frozen account
+      description: Caller must own the account. Only a `FROZEN` account can be reopened (`CLOSED` is terminal).
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          description: Account is not FROZEN.
+          content:
+            text/plain:
+              schema: { type: string }
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /transactions/transfer:
+    post:
+      tags: [Transactions]
+      operationId: cashTransfer
+      summary: Cash transfer (USER_CASH → USER_CASH)
+      description: Caller must own the source account. Funds-checked.
+      requestBody:
+        $ref: '#/components/requestBodies/Transaction'
+      responses:
+        '201':
+          description: Transaction posted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          description: Malformed body, or currency not matching `^[A-Z]{3}$`.
+          content:
+            text/plain:
+              schema: { type: string }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Idempotency key already used for a different post type.
+          content:
+            text/plain:
+              schema: { type: string }
+        '422':
+          description: Insufficient funds, wrong account types, currency mismatch, or non-OPEN account.
+          content:
+            text/plain:
+              schema: { type: string }
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /transactions/deposit:
+    post:
+      tags: [Transactions]
+      operationId: deposit
+      summary: Deposit (EXTERNAL → USER_CASH) — admin only
+      description: Requires `ADMIN` role. Not funds-checked (source is the outside world).
+      requestBody:
+        $ref: '#/components/requestBodies/Transaction'
+      responses:
+        '201':
+          description: Transaction posted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          description: Malformed body, or currency not matching `^[A-Z]{3}$`.
+          content:
+            text/plain:
+              schema: { type: string }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Idempotency key already used for a different post type.
+          content:
+            text/plain:
+              schema: { type: string }
+        '422':
+          description: Insufficient funds, wrong account types, currency mismatch, or non-OPEN account.
+          content:
+            text/plain:
+              schema: { type: string }
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /transactions/withdraw:
+    post:
+      tags: [Transactions]
+      operationId: withdraw
+      summary: Withdraw (USER_CASH → EXTERNAL)
+      description: Caller must own the source account. Funds-checked.
+      requestBody:
+        $ref: '#/components/requestBodies/Transaction'
+      responses:
+        '201':
+          description: Transaction posted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          description: Malformed body, or currency not matching `^[A-Z]{3}$`.
+          content:
+            text/plain:
+              schema: { type: string }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Idempotency key already used for a different post type.
+          content:
+            text/plain:
+              schema: { type: string }
+        '422':
+          description: Insufficient funds, wrong account types, currency mismatch, or non-OPEN account.
+          content:
+            text/plain:
+              schema: { type: string }
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /transactions/assess-fee:
+    post:
+      tags: [Transactions]
+      operationId: assessFee
+      summary: Assess a fee (USER_CASH → FEE_REVENUE) — admin only
+      description: Requires `ADMIN` role. Funds-checked.
+      requestBody:
+        $ref: '#/components/requestBodies/Transaction'
+      responses:
+        '201':
+          description: Transaction posted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          description: Malformed body, or currency not matching `^[A-Z]{3}$`.
+          content:
+            text/plain:
+              schema: { type: string }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Idempotency key already used for a different post type.
+          content:
+            text/plain:
+              schema: { type: string }
+        '422':
+          description: Insufficient funds, wrong account types, currency mismatch, or non-OPEN account.
+          content:
+            text/plain:
+              schema: { type: string }
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /transactions/refund-fee:
+    post:
+      tags: [Transactions]
+      operationId: refundFee
+      summary: Refund a fee (FEE_REVENUE → USER_CASH) — admin only
+      description: Requires `ADMIN` role. Not funds-checked.
+      requestBody:
+        $ref: '#/components/requestBodies/Transaction'
+      responses:
+        '201':
+          description: Transaction posted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          description: Malformed body, or currency not matching `^[A-Z]{3}$`.
+          content:
+            text/plain:
+              schema: { type: string }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Idempotency key already used for a different post type.
+          content:
+            text/plain:
+              schema: { type: string }
+        '422':
+          description: Insufficient funds, wrong account types, currency mismatch, or non-OPEN account.
+          content:
+            text/plain:
+              schema: { type: string }
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /transactions/{id}/reverse:
+    post:
+      tags: [Transactions]
+      operationId: reverseTransaction
+      summary: Reverse a posted transaction — admin only
+      description: |
+        Requires `ADMIN` role. The original must be `POSTED` and not already
+        reversed. The service derives the inverse posting internally — the
+        caller never names the post type.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the original transaction to reverse.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReverseRequest'
+      responses:
+        '201':
+          description: Reversal posted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Original transaction not found.
+          content:
+            text/plain:
+              schema: { type: string }
+        '409':
+          description: Transaction has already been reversed.
+          content:
+            text/plain:
+              schema: { type: string }
+        '422':
+          description: Transaction is not reversible (not POSTED, or no inverse for its type).
+          content:
+            text/plain:
+              schema: { type: string }
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 'HS256 JWT from /login or /signup. Send as `Authorization: Bearer <token>`.'
+
+  parameters:
+    AccountId:
+      name: id
+      in: path
+      required: true
+      description: Account ID.
+      schema:
+        type: string
+        format: uuid
+
+  requestBodies:
+    Transaction:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/TransactionRequest'
+
+  responses:
+    NoContent:
+      description: Success — no body.
+    BadRequest:
+      description: Malformed body, unknown fields, or a field-level validation failure.
+      content:
+        text/plain:
+          schema: { type: string }
+    Unauthorized:
+      description: Missing, malformed, invalid, or expired bearer token.
+      content:
+        text/plain:
+          schema: { type: string }
+    Forbidden:
+      description: Authenticated but not permitted (not the owner, or not an admin).
+      content:
+        text/plain:
+          schema: { type: string }
+    NotFound:
+      description: Resource not found.
+      content:
+        text/plain:
+          schema: { type: string }
+    InternalError:
+      description: Internal error (body masked to "internal error").
+      content:
+        text/plain:
+          schema: { type: string }
+
+  schemas:
+    AccountType:
+      type: string
+      enum: [USER_CASH, EXTERNAL, CARD_SETTLEMENT, ACH_CLEARING, FEE_REVENUE, TREASURY]
+      description: USER_CASH is the normal wallet type for end users.
+    AccountStatus:
+      type: string
+      enum: [OPEN, FROZEN, CLOSED]
+    TransactionStatus:
+      type: string
+      enum: [PENDING, POSTED, REVERSED]
+    Currency:
+      type: string
+      pattern: '^[A-Z]{3}$'
+      example: USD
+      description: 3-letter uppercase ISO 4217 code.
+
+    SignupRequest:
+      type: object
+      required: [email, password, account_type, currency]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          minLength: 8
+          description: Minimum 8 characters. bcrypt truncates beyond 72 bytes.
+        account_type:
+          $ref: '#/components/schemas/AccountType'
+        currency:
+          $ref: '#/components/schemas/Currency'
+    SignupResponse:
+      type: object
+      properties:
+        account_id:
+          type: string
+          format: uuid
+        account_type:
+          $ref: '#/components/schemas/AccountType'
+        currency:
+          $ref: '#/components/schemas/Currency'
+        token:
+          type: string
+          description: HS256 JWT. Empty on the POST /accounts response (you already have a token there).
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: HS256 JWT bearer token.
+
+    CreateAccountRequest:
+      type: object
+      required: [account_type, currency]
+      properties:
+        account_type:
+          $ref: '#/components/schemas/AccountType'
+        currency:
+          $ref: '#/components/schemas/Currency'
+
+    AccountResponse:
+      type: object
+      properties:
+        account_id:
+          type: string
+          format: uuid
+        account_type:
+          $ref: '#/components/schemas/AccountType'
+        account_status:
+          $ref: '#/components/schemas/AccountStatus'
+        currency:
+          $ref: '#/components/schemas/Currency'
+    GetAccountsResponse:
+      type: object
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccountResponse'
+
+    AccountBalanceResponse:
+      type: object
+      properties:
+        balance:
+          type: integer
+          format: int64
+          description: Net balance in minor units.
+
+    TransactionRequest:
+      type: object
+      required: [from_account_id, to_account_id, amount, currency, idempotency_key]
+      properties:
+        from_account_id:
+          type: string
+          format: uuid
+        to_account_id:
+          type: string
+          format: uuid
+        external_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Informational tag — not unique, may repeat across transactions.
+        amount:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Minor units. Must be positive.
+        currency:
+          $ref: '#/components/schemas/Currency'
+        idempotency_key:
+          type: string
+          description: Unique per logical operation. Replaying the same key returns the original transaction; reusing it across post types is a 409.
+        memo:
+          type: string
+          nullable: true
+          description: Per-entry note.
+        description:
+          type: string
+          nullable: true
+          description: Transaction-header description.
+    TransactionResponse:
+      type: object
+      properties:
+        transaction_id:
+          type: string
+          format: uuid
+        external_id:
+          type: string
+          format: uuid
+          nullable: true
+        idempotency_key:
+          type: string
+        transaction_type:
+          type: string
+          description: The post type, e.g. CASH_TRANSFER, DEPOSIT, WITHDRAW, FEE_ASSESSMENT, FEE_REFUND, and their *_REVERSAL variants.
+        description:
+          type: string
+          nullable: true
+        transaction_status:
+          $ref: '#/components/schemas/TransactionStatus'
+        posted_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set by the DB when status flips to POSTED.
+        created_at:
+          type: string
+          format: date-time
+
+    ReverseRequest:
+      type: object
+      required: [idempotency_key]
+      properties:
+        idempotency_key:
+          type: string
+          description: Idempotency key for the reversal transaction itself.
+        memo:
+          type: string
+          nullable: true
+
+security:
+  - bearerAuth: []
