@@ -46,7 +46,11 @@ docker exec -it pg-container psql -U postgres
 docker rm -f pg-container && docker volume rm payclone_pgdata
 ```
 
-Service features:
+## OpenAPI
+
+View at [Swagger](https://editor.swagger.io/)
+
+## Service features
 
 1) Canonical ordering: PayClone removes deadlocks in db by removing the possibility of a cycle, via simple lexigraphical order. Both goroutines lock same account first.
 
