@@ -1,0 +1,7 @@
+/* MUI's <CssBaseline /> handles the real reset (margins, box-sizing, typography).
+   We only need the root containers to fill the viewport so pages can center. */
+html,
+body,
+#root {
+  height: 100%;
+}
