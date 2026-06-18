@@ -1,9 +1,11 @@
 import { createContext, useContext } from 'react'
-import type { AccountCreatedResponse, SignupRequest } from '../types'
+import type { AccountCreatedResponse, SignupRequest, UserRole } from '../types'
 
 export interface AuthContextValue {
   token: string | null
   isAuthenticated: boolean
+  // Role decoded from the token's claim (not verified) — UI hint only.
+  role: UserRole | null
   // Incremented on every logout() call (even with no token loaded). Views can
   // key off it to fully reset.
   logoutNonce: number

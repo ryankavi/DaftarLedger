@@ -4,10 +4,16 @@ import { useAuth } from '../auth/context'
 // Small live indicator of whether a token is loaded in the auth context. Re-renders
 // automatically whenever the token changes (login sets it, logout clears it).
 export default function TokenStatus() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, role } = useAuth()
 
   if (isAuthenticated) {
-    return <Chip label="Token loaded" color="primary" size="small" />
+    return (
+      <Chip
+        label={`Token loaded${role ? ` · ${role}` : ''}`}
+        color={role === 'ADMIN' ? 'warning' : 'primary'}
+        size="small"
+      />
+    )
   }
 
   return (

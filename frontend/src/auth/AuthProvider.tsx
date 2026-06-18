@@ -2,6 +2,7 @@ import { useCallback, useState, type ReactNode } from 'react'
 import { login as loginRequest, signup as signupRequest, setAuthToken } from '../api'
 import type { SignupRequest } from '../types'
 import { AuthContext } from './context'
+import { decodeTokenRole } from './jwt'
 
 // Demo-grade token storage: in sessionStorage so a refresh survives but the
 // token is gone when the tab closes. No refresh token, no revocation — the
@@ -20,6 +21,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // data-fetching effects run before parent effects, so an effect here could
   // leave the first post-refresh request unauthenticated. This is idempotent.
   setAuthToken(token)
+
+  // Read the role straight from the token's claim — no API call. UI hint only.
+  const role = token ? decodeTokenRole(token) : null
 
   const login = useCallback(async (email: string, password: string) => {
     const res = await loginRequest(email, password)
@@ -47,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         token,
         isAuthenticated: token !== null,
+        role,
         logoutNonce,
         login,
         signup,

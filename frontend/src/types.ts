@@ -12,6 +12,8 @@ export type AccountStatus = 'OPEN' | 'FROZEN' | 'CLOSED'
 
 export type TransactionStatus = 'PENDING' | 'POSTED' | 'REVERSED'
 
+export type UserRole = 'USER' | 'ADMIN'
+
 export interface LoginResponse {
   token: string
 }
