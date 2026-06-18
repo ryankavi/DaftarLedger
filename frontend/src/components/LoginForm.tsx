@@ -39,6 +39,10 @@ export default function LoginForm() {
     e.preventDefault()
     setError(null)
     setBusy(true)
+    // Clear the inputs on submit. login() below still uses the values captured
+    // in this render's closure, so the request keeps the entered credentials.
+    setEmail('')
+    setPassword('')
     try {
       await login(email, password)
     } catch (err) {
