@@ -26,9 +26,9 @@ export const theme = createTheme({
       secondary: '#5f6368',
     },
     background: {
-      // Deep, darkened take on the brand green (#6ba832 scaled to ~40%). Cards
-      // (paper) stay white so they pop against it.
-      default: '#2d4715',
+      // Charcoal page: green-on-green washed out the card's glow, so the backdrop
+      // is neutral. Cards (paper) stay white to pop against it.
+      default: '#1c1d18',
       paper: '#ffffff',
     },
     divider: '#e1e3df',

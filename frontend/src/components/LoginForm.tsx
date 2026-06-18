@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { keyframes } from '@mui/material/styles'
 import Alert from '@mui/material/Alert'
 import Avatar from '@mui/material/Avatar'
 import Box from '@mui/material/Box'
@@ -15,6 +16,13 @@ import Visibility from '@mui/icons-material/Visibility'
 import VisibilityOff from '@mui/icons-material/VisibilityOff'
 import { ApiError } from '../api'
 import { useAuth } from '../auth/context'
+
+// Breathing glow: a brand-green halo that brightens and dims, drawing the eye
+// to the form without nagging.
+const breathe = keyframes`
+  0%, 100% { box-shadow: 0 0 6px 0 rgba(139, 194, 90, 0.5); }
+  50%      { box-shadow: 0 0 22px 4px rgba(139, 194, 90, 0.9); }
+`
 
 // Minimal, borderless login: underlined `standard` inputs with leading icons
 // and a show/hide password toggle. Self-contained — owns its form state and
@@ -51,7 +59,10 @@ export default function LoginForm() {
           width: '100%',
           p: 4,
           border: '1px solid',
-          borderColor: 'divider',
+          borderColor: 'primary.light',
+          animation: `${breathe} 2.8s ease-in-out infinite`,
+          // Don't animate for users who prefer reduced motion.
+          '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
         }}
       >
         <Stack component="form" spacing={3} onSubmit={handleSubmit}>
