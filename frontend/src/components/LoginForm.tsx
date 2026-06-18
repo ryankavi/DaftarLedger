@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react'
 import Alert from '@mui/material/Alert'
-import Avatar from '@mui/material/Avatar'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'

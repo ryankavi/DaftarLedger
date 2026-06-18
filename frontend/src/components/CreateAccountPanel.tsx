@@ -12,6 +12,7 @@ import Typography from '@mui/material/Typography'
 import { ApiError, createAccount } from '../api'
 import type { AccountCreatedResponse, AccountType } from '../types'
 import { glowBorderSx } from '../animations'
+import { useClearOnLogout } from '../auth/useClearOnLogout'
 
 const ACCOUNT_TYPES: AccountType[] = [
   'USER_CASH',
@@ -30,6 +31,12 @@ export default function CreateAccountPanel() {
   const [result, setResult] = useState<AccountCreatedResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  // Wipe the response when the token is cleared.
+  useClearOnLogout(() => {
+    setResult(null)
+    setError(null)
+  })
 
   async function handleSubmit() {
     setError(null)
