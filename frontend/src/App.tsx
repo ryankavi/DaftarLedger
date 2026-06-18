@@ -2,12 +2,14 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Stack from '@mui/material/Stack'
 import LoginForm from './components/LoginForm'
+import CreateAccountPanel from './components/CreateAccountPanel'
+import AccountsPanel from './components/AccountsPanel'
 import TokenStatus from './components/TokenStatus'
 import { useAuth } from './auth/context'
 
-// Single page: the login form plus a live token-status chip and a logout button.
-// All three share the auth context, so logging in or clicking "Log out" updates
-// the chip automatically — no view swapping.
+// Single page: login form, a live token-status chip + logout button, and the
+// accounts endpoint panel. All share the auth context — log in and the token
+// chip flips and the accounts request starts working.
 export default function App() {
   const { logout } = useAuth()
 
@@ -24,8 +26,23 @@ export default function App() {
         </Button>
       </Stack>
 
-      <Box sx={{ flex: 1 }}>
+      {/* 2-column grid of fixed-width columns, centered as a group so the only
+          gap between panels is `gap` (not half the viewport). Default row-major
+          flow fills left, then right, then wraps to the next row. */}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 400px))' },
+          justifyContent: 'center',
+          gap: 3,
+          alignItems: 'start',
+          px: 2,
+          pb: 6,
+        }}
+      >
         <LoginForm />
+        <CreateAccountPanel />
+        <AccountsPanel />
       </Box>
     </Box>
   )
