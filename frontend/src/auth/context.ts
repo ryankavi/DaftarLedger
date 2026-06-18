@@ -1,9 +1,14 @@
 import { createContext, useContext } from 'react'
+import type { AccountCreatedResponse, SignupRequest } from '../types'
 
 export interface AuthContextValue {
   token: string | null
   isAuthenticated: boolean
+  // Incremented on every logout() call (even with no token loaded). Views can
+  // key off it to fully reset.
+  logoutNonce: number
   login: (email: string, password: string) => Promise<void>
+  signup: (input: SignupRequest) => Promise<AccountCreatedResponse>
   logout: () => void
 }
 

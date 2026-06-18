@@ -1,5 +1,6 @@
 import { useCallback, useState, type ReactNode } from 'react'
-import { login as loginRequest, setAuthToken } from '../api'
+import { login as loginRequest, signup as signupRequest, setAuthToken } from '../api'
+import type { SignupRequest } from '../types'
 import { AuthContext } from './context'
 
 // Demo-grade token storage: in sessionStorage so a refresh survives but the
@@ -11,6 +12,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(() =>
     sessionStorage.getItem(TOKEN_KEY),
   )
+  // Bumped on every logout() so views can fully reset even when no token was
+  // loaded (logging out twice still triggers a change).
+  const [logoutNonce, setLogoutNonce] = useState(0)
 
   // Sync the api client's bearer header during render (not in an effect): child
   // data-fetching effects run before parent effects, so an effect here could
@@ -23,14 +27,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(res.token)
   }, [])
 
+  // Signup also returns a token, so it authenticates immediately — same path as
+  // login. Returns the created-account response so the caller can display it.
+  const signup = useCallback(async (input: SignupRequest) => {
+    const res = await signupRequest(input)
+    sessionStorage.setItem(TOKEN_KEY, res.token)
+    setToken(res.token)
+    return res
+  }, [])
+
   const logout = useCallback(() => {
     sessionStorage.removeItem(TOKEN_KEY)
     setToken(null)
+    setLogoutNonce((n) => n + 1)
   }, [])
 
   return (
     <AuthContext.Provider
-      value={{ token, isAuthenticated: token !== null, login, logout }}
+      value={{
+        token,
+        isAuthenticated: token !== null,
+        logoutNonce,
+        login,
+        signup,
+        logout,
+      }}
     >
       {children}
     </AuthContext.Provider>

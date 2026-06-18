@@ -2,8 +2,10 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Stack from '@mui/material/Stack'
 import LoginForm from './components/LoginForm'
+import SignupPanel from './components/SignupPanel'
 import CreateAccountPanel from './components/CreateAccountPanel'
 import AccountsPanel from './components/AccountsPanel'
+import DepositPanel from './components/DepositPanel'
 import TokenStatus from './components/TokenStatus'
 import { useAuth } from './auth/context'
 
@@ -11,7 +13,7 @@ import { useAuth } from './auth/context'
 // accounts endpoint panel. All share the auth context — log in and the token
 // chip flips and the accounts request starts working.
 export default function App() {
-  const { logout } = useAuth()
+  const { logout, logoutNonce } = useAuth()
 
   return (
     <Box sx={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -30,19 +32,23 @@ export default function App() {
           gap between panels is `gap` (not half the viewport). Default row-major
           flow fills left, then right, then wraps to the next row. */}
       <Box
+        key={logoutNonce}
         sx={{
           display: 'grid',
           gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 400px))' },
           justifyContent: 'center',
-          gap: 3,
+          rowGap: 3,
+          columnGap: 5,
           alignItems: 'start',
           px: 2,
           pb: 6,
         }}
       >
         <LoginForm />
+        <SignupPanel />
         <CreateAccountPanel />
         <AccountsPanel />
+        <DepositPanel />
       </Box>
     </Box>
   )

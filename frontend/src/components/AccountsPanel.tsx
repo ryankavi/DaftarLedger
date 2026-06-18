@@ -12,7 +12,6 @@ import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { ApiError, listAccounts } from '../api'
 import type { Account } from '../types'
-import { useClearOnLogout } from '../auth/useClearOnLogout'
 
 // Calls GET /api/accounts for the current user. The token is attached
 // automatically by the api client from the auth context.
@@ -20,12 +19,6 @@ export default function AccountsPanel() {
   const [accounts, setAccounts] = useState<Account[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-
-  // Wipe the response when the token is cleared.
-  useClearOnLogout(() => {
-    setAccounts(null)
-    setError(null)
-  })
 
   async function handleFetch() {
     setError(null)

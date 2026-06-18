@@ -3,8 +3,8 @@ import { keyframes } from '@mui/material/styles'
 // Breathing glow: a brand-green halo that brightens and dims, drawing the eye
 // without nagging. Shared by the login form and the create-account panel.
 export const breathe = keyframes`
-  0%, 100% { box-shadow: 0 0 6px 0 rgba(139, 194, 90, 0.5); }
-  50%      { box-shadow: 0 0 22px 4px rgba(139, 194, 90, 0.9); }
+  0%, 100% { box-shadow: 0 0 8px 1px rgba(140, 240, 100, 0.5); }
+  50%      { box-shadow: 0 0 22px 5px rgba(140, 240, 100, 0.75); }
 `
 
 // Drop-in sx for a glowing green border. Spread into a component's sx.

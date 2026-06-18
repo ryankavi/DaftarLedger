@@ -9,8 +9,10 @@ import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { ApiError, createAccount } from '../api'
+import { ApiError } from '../api'
 import type { AccountCreatedResponse, AccountType } from '../types'
+import { useAuth } from '../auth/context'
+import { glowBorderSx } from '../animations'
 
 const ACCOUNT_TYPES: AccountType[] = [
   'USER_CASH',
@@ -21,9 +23,12 @@ const ACCOUNT_TYPES: AccountType[] = [
   'TREASURY',
 ]
 
-// Calls POST /api/accounts to create an account for the current user. Wrapped
-// in the same breathing glow as the login form.
-export default function CreateAccountPanel() {
+// Calls POST /api/signup via the auth context (signup returns a token, so it
+// logs you in immediately). Glowing, like the login form.
+export default function SignupPanel() {
+  const { signup } = useAuth()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [accountType, setAccountType] = useState<AccountType>('USER_CASH')
   const [currency, setCurrency] = useState('USD')
   const [result, setResult] = useState<AccountCreatedResponse | null>(null)
@@ -35,7 +40,12 @@ export default function CreateAccountPanel() {
     setResult(null)
     setBusy(true)
     try {
-      const res = await createAccount({ account_type: accountType, currency })
+      const res = await signup({
+        email,
+        password,
+        account_type: accountType,
+        currency,
+      })
       setResult(res)
     } catch (err) {
       setError(
@@ -47,22 +57,39 @@ export default function CreateAccountPanel() {
   }
 
   return (
-    <Paper sx={{ p: 3, width: '100%' }}>
+    <Paper elevation={0} sx={{ p: 3, width: '100%', ...glowBorderSx }}>
       <Stack spacing={2}>
         {/* Title */}
         <Box>
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
             <Chip label="POST" size="small" color="primary" />
             <Typography variant="subtitle1" sx={{ fontFamily: 'monospace' }}>
-              /api/accounts
+              /api/signup
             </Typography>
           </Stack>
           <Typography variant="caption" color="text.secondary">
-            Create an account for the current user
+            Create a user + first account, returns a token
           </Typography>
         </Box>
 
         {/* Inputs */}
+        <TextField
+          label="Email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          size="small"
+          fullWidth
+        />
+        <TextField
+          label="Password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          size="small"
+          fullWidth
+          helperText="Min 8 characters"
+        />
         <TextField
           select
           label="Account type"
@@ -86,7 +113,7 @@ export default function CreateAccountPanel() {
           slotProps={{ htmlInput: { maxLength: 3 } }}
         />
 
-        {/* Response — between the title/inputs and the button */}
+        {/* Response — between the inputs and the button */}
         {busy && (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
             <CircularProgress size={24} />
@@ -95,7 +122,7 @@ export default function CreateAccountPanel() {
         {error && <Alert severity="error">{error}</Alert>}
         {result && !busy && (
           <Alert severity="success">
-            Created {result.account_type} · {result.currency}
+            Created {result.account_type} · {result.currency} — token issued
             <br />
             {result.account_id}
           </Alert>
