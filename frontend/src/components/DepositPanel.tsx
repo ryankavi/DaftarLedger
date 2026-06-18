@@ -38,6 +38,8 @@ export default function DepositPanel() {
         idempotency_key: idempotencyKey,
       })
       setResult(res)
+      // Roll a fresh key so the next deposit isn't deduped against this one.
+      setIdempotencyKey(crypto.randomUUID())
     } catch (err) {
       setError(
         err instanceof ApiError ? `${err.status}: ${err.message}` : 'Request failed',
