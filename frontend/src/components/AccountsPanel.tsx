@@ -18,10 +18,10 @@ import LockedFilm from './LockedFilm'
 // Calls GET /api/accounts for the current user. The token is attached
 // automatically by the api client from the auth context.
 export default function AccountsPanel() {
-  const { isAuthenticated, role } = useAuth()
-  // Only USER-role holders of a live token may list their accounts. Otherwise
-  // the panel squishes shut, leaving just the title + description on display.
-  const expanded = isAuthenticated && role === 'USER'
+  const { isAuthenticated } = useAuth()
+  // Lists the caller's own accounts, so any authenticated user (USER or ADMIN)
+  // can use it. Squish shut only when there's no token at all.
+  const expanded = isAuthenticated
 
   const [accounts, setAccounts] = useState<Account[] | null>(null)
   const [error, setError] = useState<string | null>(null)
