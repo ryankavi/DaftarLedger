@@ -1,39 +1,45 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
-import MenuItem from '@mui/material/MenuItem'
+import IconButton from '@mui/material/IconButton'
+import InputAdornment from '@mui/material/InputAdornment'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
+import Visibility from '@mui/icons-material/Visibility'
+import VisibilityOff from '@mui/icons-material/VisibilityOff'
 import { ApiError } from '../api'
-import type { AccountCreatedResponse, AccountType } from '../types'
+import type { AccountCreatedResponse } from '../types'
 import { useAuth } from '../auth/context'
 import { glowBorderSx } from '../animations'
-
-const ACCOUNT_TYPES: AccountType[] = [
-  'USER_CASH',
-  'EXTERNAL',
-  'CARD_SETTLEMENT',
-  'ACH_CLEARING',
-  'FEE_REVENUE',
-  'TREASURY',
-]
 
 // Calls POST /api/signup via the auth context (signup returns a token, so it
 // logs you in immediately). Glowing, like the login form.
 export default function SignupPanel() {
-  const { signup } = useAuth()
+  const { signup, logoutNonce } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [accountType, setAccountType] = useState<AccountType>('USER_CASH')
+  const [showPassword, setShowPassword] = useState(false)
   const [currency, setCurrency] = useState('USD')
   const [result, setResult] = useState<AccountCreatedResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  // Reset on logout (not login): signup itself logs you in and then shows its
+  // success result, so we keep that result until the token is cleared. The grid
+  // no longer remounts to clear this for us.
+  useEffect(() => {
+    setEmail('')
+    setPassword('')
+    setShowPassword(false)
+    setCurrency('USD')
+    setResult(null)
+    setError(null)
+  }, [logoutNonce])
 
   async function handleSubmit() {
     setError(null)
@@ -43,7 +49,9 @@ export default function SignupPanel() {
       const res = await signup({
         email,
         password,
-        account_type: accountType,
+        // Signup only ever opens a USER_CASH wallet; platform accounts are
+        // admin-provisioned, so there's nothing to choose here.
+        account_type: 'USER_CASH',
         currency,
       })
       setResult(res)
@@ -83,27 +91,33 @@ export default function SignupPanel() {
         />
         <TextField
           label="Password"
-          type="password"
+          type={showPassword ? 'text' : 'password'}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           size="small"
           fullWidth
           helperText="Min 8 characters"
+          slotProps={{
+            input: {
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    onClick={() => setShowPassword((s) => !s)}
+                    edge="end"
+                    size="small"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? (
+                      <VisibilityOff fontSize="small" />
+                    ) : (
+                      <Visibility fontSize="small" />
+                    )}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            },
+          }}
         />
-        <TextField
-          select
-          label="Account type"
-          value={accountType}
-          onChange={(e) => setAccountType(e.target.value as AccountType)}
-          size="small"
-          fullWidth
-        >
-          {ACCOUNT_TYPES.map((t) => (
-            <MenuItem key={t} value={t}>
-              {t}
-            </MenuItem>
-          ))}
-        </TextField>
         <TextField
           label="Currency"
           value={currency}

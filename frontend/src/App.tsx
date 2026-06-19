@@ -13,7 +13,7 @@ import { useAuth } from './auth/context'
 // accounts endpoint panel. All share the auth context — log in and the token
 // chip flips and the accounts request starts working.
 export default function App() {
-  const { logout, logoutNonce } = useAuth()
+  const { logout } = useAuth()
 
   return (
     <Box sx={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -30,9 +30,13 @@ export default function App() {
 
       {/* 2-column grid of fixed-width columns, centered as a group so the only
           gap between panels is `gap` (not half the viewport). Default row-major
-          flow fills left, then right, then wraps to the next row. */}
+          flow fills left, then right, then wraps to the next row.
+
+          Deliberately NOT keyed on logoutNonce: remounting on logout would snap
+          the squish panels shut instead of letting them animate closed. Each
+          panel now resets its own state instead (on login for the squish
+          panels, on logout for the auth panels). */}
       <Box
-        key={logoutNonce}
         sx={{
           display: 'grid',
           gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 400px))' },

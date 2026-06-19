@@ -139,7 +139,11 @@ func (s *Server) createAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	account, err := service.CreateAccount(r.Context(), s.db, userId, req.AccountType, req.Currency)
+	// Role gates which account types the caller may create — enforced in the
+	// service (USER ↔ USER_CASH, ADMIN ↔ platform accounts).
+	role, _ := RoleFromCtx(r.Context())
+
+	account, err := service.CreateAccount(r.Context(), s.db, userId, role, req.AccountType, req.Currency)
 	if err != nil {
 		writeError(w, s.logger, "create account failed", err)
 		return

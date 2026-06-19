@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -20,12 +20,20 @@ import { glowBorderSx } from '../animations'
 // and a show/hide password toggle. Self-contained — owns its form state and
 // talks to the auth context directly, so App only has to render it.
 export default function LoginForm() {
-  const { login } = useAuth()
+  const { login, logoutNonce } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  // Clear the form on logout (the grid no longer remounts to do it for us).
+  useEffect(() => {
+    setEmail('')
+    setPassword('')
+    setShowPassword(false)
+    setError(null)
+  }, [logoutNonce])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()

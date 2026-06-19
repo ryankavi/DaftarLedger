@@ -20,6 +20,11 @@ import (
 // before the row is written — the plaintext never leaves this function.
 func CreateUserWithAccount(ctx context.Context, database *sql.DB, email string, password string, accountType string, currency string) (models.Account, error) {
 
+	// A fresh signup is always a USER, so it may only open a USER_CASH wallet.
+	if err := validateAccountTypeForRole(models.RoleUser, models.AccountType(accountType)); err != nil {
+		return models.Account{}, err
+	}
+
 	tx, err := database.BeginTx(ctx, nil)
 	if err != nil {
 		return models.Account{}, fmt.Errorf("create account begin tx: %w", err)
@@ -75,8 +80,35 @@ func validateEmail(email string) bool {
 	return addr.Address == email
 }
 
-// Authenticated users only, ownerID comes from auth context
-func CreateAccount(ctx context.Context, database *sql.DB, ownerID string, accountType string, currency string) (models.Account, error) {
+// validateAccountTypeForRole enforces the create-time ownership partition.
+// Account creation owns the new account to the caller, so the two roles create
+// disjoint sets: a USER may only own a USER_CASH wallet, and an ADMIN may only
+// provision the platform accounts (an admin has no business owning a consumer
+// wallet). Unknown types are rejected outright.
+func validateAccountTypeForRole(role models.UserRole, accountType models.AccountType) error {
+	switch accountType {
+	case models.AccountUserCash:
+		if role == models.RoleAdmin {
+			return errx.ErrForbidden
+		}
+		return nil
+	case models.AccountExternal, models.AccountCardSettlement,
+		models.AccountACHClearing, models.AccountFeeRevenue, models.AccountTreasury:
+		if role != models.RoleAdmin {
+			return errx.ErrForbidden
+		}
+		return nil
+	default:
+		return errx.ErrInvalidAccountType
+	}
+}
+
+// Authenticated users only, ownerID and role come from the auth context.
+func CreateAccount(ctx context.Context, database *sql.DB, ownerID string, role models.UserRole, accountType string, currency string) (models.Account, error) {
+
+	if err := validateAccountTypeForRole(role, models.AccountType(accountType)); err != nil {
+		return models.Account{}, err
+	}
 
 	account, err := repository.CreateAccount(ctx, database, ownerID, models.AccountType(accountType), currency)
 	if err != nil {

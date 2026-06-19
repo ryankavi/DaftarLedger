@@ -56,6 +56,15 @@ func TestCreateUserWithAccount_InvalidEmail(t *testing.T) {
 	require.ErrorIs(t, err, errx.ErrInvalidEmail)
 }
 
+// Signup is always a USER, so a platform account type is forbidden.
+func TestCreateUserWithAccount_PlatformTypeForbidden(t *testing.T) {
+	truncateAll(t)
+	ctx := context.Background()
+
+	_, err := CreateUserWithAccount(ctx, testDB, "platform-signup@example.com", "password123", string(models.AccountTreasury), "USD")
+	require.ErrorIs(t, err, errx.ErrForbidden)
+}
+
 func TestCreateUserWithAccount_EmailTaken(t *testing.T) {
 	truncateAll(t)
 	ctx := context.Background()
@@ -72,7 +81,7 @@ func TestCreateAccount_AuthenticatedHappy(t *testing.T) {
 	ctx := context.Background()
 
 	u := seedUser(t, ctx, "owner@example.com")
-	a, err := CreateAccount(ctx, testDB, u.UserID, string(models.AccountUserCash), "USD")
+	a, err := CreateAccount(ctx, testDB, u.UserID, models.RoleUser, string(models.AccountUserCash), "USD")
 	require.NoError(t, err)
 	assert.Equal(t, u.UserID, a.OwnerID)
 	assert.Equal(t, models.AccountUserCash, a.AccountType)
@@ -83,11 +92,50 @@ func TestCreateAccount_TypeExists(t *testing.T) {
 	ctx := context.Background()
 
 	u := seedUser(t, ctx, "owner2@example.com")
-	_, err := CreateAccount(ctx, testDB, u.UserID, string(models.AccountUserCash), "USD")
+	_, err := CreateAccount(ctx, testDB, u.UserID, models.RoleUser, string(models.AccountUserCash), "USD")
 	require.NoError(t, err)
 
-	_, err = CreateAccount(ctx, testDB, u.UserID, string(models.AccountUserCash), "USD")
+	_, err = CreateAccount(ctx, testDB, u.UserID, models.RoleUser, string(models.AccountUserCash), "USD")
 	require.ErrorIs(t, err, errx.ErrAccountTypeExists)
+}
+
+// A USER may only own USER_CASH; platform types are forbidden to them.
+func TestCreateAccount_UserCannotCreatePlatformType(t *testing.T) {
+	truncateAll(t)
+	ctx := context.Background()
+
+	u := seedUser(t, ctx, "user-platform@example.com")
+	_, err := CreateAccount(ctx, testDB, u.UserID, models.RoleUser, string(models.AccountExternal), "USD")
+	require.ErrorIs(t, err, errx.ErrForbidden)
+}
+
+// An ADMIN provisions platform accounts and must not own a consumer wallet.
+func TestCreateAccount_AdminCannotCreateUserCash(t *testing.T) {
+	truncateAll(t)
+	ctx := context.Background()
+
+	u := seedUser(t, ctx, "admin-wallet@example.com")
+	_, err := CreateAccount(ctx, testDB, u.UserID, models.RoleAdmin, string(models.AccountUserCash), "USD")
+	require.ErrorIs(t, err, errx.ErrForbidden)
+}
+
+func TestCreateAccount_AdminCanCreatePlatformType(t *testing.T) {
+	truncateAll(t)
+	ctx := context.Background()
+
+	u := seedUser(t, ctx, "admin-platform@example.com")
+	a, err := CreateAccount(ctx, testDB, u.UserID, models.RoleAdmin, string(models.AccountExternal), "USD")
+	require.NoError(t, err)
+	assert.Equal(t, models.AccountExternal, a.AccountType)
+}
+
+func TestCreateAccount_UnknownTypeRejected(t *testing.T) {
+	truncateAll(t)
+	ctx := context.Background()
+
+	u := seedUser(t, ctx, "bad-type@example.com")
+	_, err := CreateAccount(ctx, testDB, u.UserID, models.RoleAdmin, "NOT_A_TYPE", "USD")
+	require.ErrorIs(t, err, errx.ErrInvalidAccountType)
 }
 
 func TestCloseAccount_Happy(t *testing.T) {

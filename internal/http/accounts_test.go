@@ -35,6 +35,48 @@ func TestCreateAccount_NoToken(t *testing.T) {
 	require.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
+// A USER may only self-serve USER_CASH; platform types are admin-only.
+func TestCreateAccount_NonUserCashForbiddenForUser(t *testing.T) {
+	truncateAll(t)
+	srv := newTestServer(t)
+	_, token := seedUser(t, srv, "u@example.com", models.RoleUser)
+
+	rec := doJSON(t, srv, "POST", "/api/accounts", token, map[string]any{
+		"account_type": string(models.AccountExternal),
+		"currency":     "USD",
+	})
+
+	require.Equal(t, http.StatusForbidden, rec.Code)
+}
+
+// An admin can provision a platform account type.
+func TestCreateAccount_NonUserCashAllowedForAdmin(t *testing.T) {
+	truncateAll(t)
+	srv := newTestServer(t)
+	_, token := seedUser(t, srv, "admin@example.com", models.RoleAdmin)
+
+	rec := doJSON(t, srv, "POST", "/api/accounts", token, map[string]any{
+		"account_type": string(models.AccountExternal),
+		"currency":     "USD",
+	})
+
+	require.Equal(t, http.StatusCreated, rec.Code)
+}
+
+// An admin owns platform accounts, not consumer wallets — USER_CASH is 403.
+func TestCreateAccount_UserCashForbiddenForAdmin(t *testing.T) {
+	truncateAll(t)
+	srv := newTestServer(t)
+	_, token := seedUser(t, srv, "admin@example.com", models.RoleAdmin)
+
+	rec := doJSON(t, srv, "POST", "/api/accounts", token, map[string]any{
+		"account_type": string(models.AccountUserCash),
+		"currency":     "USD",
+	})
+
+	require.Equal(t, http.StatusForbidden, rec.Code)
+}
+
 // An empty account list must serialize as [] (not null) so clients can iterate.
 func TestGetAccounts_EmptyIsArray(t *testing.T) {
 	truncateAll(t)
