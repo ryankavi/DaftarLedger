@@ -18,6 +18,7 @@ import AutorenewIcon from '@mui/icons-material/Autorenew'
 import { ApiError, refundFee } from '../api'
 import { useAuth } from '../auth/context'
 import type { TransactionResponse } from '../types'
+import { PLATFORM_ACCOUNTS } from '../platformAccounts'
 import LockedFilm from './LockedFilm'
 import PanelTitle from './PanelTitle'
 
@@ -28,7 +29,8 @@ export default function RefundFeePanel() {
   // Admin-only platform flow, so the panel only stays open for an ADMIN token.
   const expanded = isAuthenticated && role === 'ADMIN'
 
-  const [fromAccountId, setFromAccountId] = useState('')
+  // Prefilled with the seeded platform FEE_REVENUE account (migration 000007).
+  const [fromAccountId, setFromAccountId] = useState(PLATFORM_ACCOUNTS.FEE_REVENUE)
   const [toAccountId, setToAccountId] = useState('')
   const [amount, setAmount] = useState('')
   const [currency, setCurrency] = useState('USD')
@@ -44,7 +46,7 @@ export default function RefundFeePanel() {
   // when a fresh token arrives.
   useEffect(() => {
     if (!isAuthenticated) return
-    setFromAccountId('')
+    setFromAccountId(PLATFORM_ACCOUNTS.FEE_REVENUE)
     setToAccountId('')
     setAmount('')
     setCurrency('USD')
@@ -122,6 +124,7 @@ export default function RefundFeePanel() {
             value={fromAccountId}
             onChange={(e) => setFromAccountId(e.target.value)}
             fullWidth
+            helperText="Prefilled: seeded platform FEE_REVENUE account"
             slotProps={{
               input: {
                 startAdornment: (

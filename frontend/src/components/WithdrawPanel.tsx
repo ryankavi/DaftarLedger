@@ -18,6 +18,7 @@ import AutorenewIcon from '@mui/icons-material/Autorenew'
 import { ApiError, withdraw } from '../api'
 import { useAuth } from '../auth/context'
 import type { TransactionResponse } from '../types'
+import { PLATFORM_ACCOUNTS } from '../platformAccounts'
 import LockedFilm from './LockedFilm'
 import PanelTitle from './PanelTitle'
 
@@ -28,7 +29,8 @@ export default function WithdrawPanel() {
   const expanded = isAuthenticated
 
   const [fromAccountId, setFromAccountId] = useState('')
-  const [toAccountId, setToAccountId] = useState('')
+  // Prefilled with the seeded platform EXTERNAL account (migration 000007).
+  const [toAccountId, setToAccountId] = useState(PLATFORM_ACCOUNTS.EXTERNAL)
   const [amount, setAmount] = useState('')
   const [currency, setCurrency] = useState('USD')
   const [idempotencyKey, setIdempotencyKey] = useState<string>(() =>
@@ -44,7 +46,7 @@ export default function WithdrawPanel() {
   useEffect(() => {
     if (!isAuthenticated) return
     setFromAccountId('')
-    setToAccountId('')
+    setToAccountId(PLATFORM_ACCOUNTS.EXTERNAL)
     setAmount('')
     setCurrency('USD')
     setIdempotencyKey(crypto.randomUUID())
@@ -132,6 +134,7 @@ export default function WithdrawPanel() {
             value={toAccountId}
             onChange={(e) => setToAccountId(e.target.value)}
             fullWidth
+            helperText="Prefilled: seeded platform EXTERNAL account"
             slotProps={{
               input: {
                 startAdornment: (

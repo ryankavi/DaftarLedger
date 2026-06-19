@@ -72,6 +72,10 @@ Schema (ledger-style double-entry):
 
 `internal/models/models.go` holds plain Go structs mirroring the schema; nullable SQL columns are pointers (`*string`, `*time.Time` — e.g. `Transaction.PostedAt`). DB enum columns are represented by named string types (`AccountType`, `EntryDirection`, `TransactionStatus`) with exported consts (e.g. `DirectionDebit`, `StatusPosted`) — use the consts, not bare string literals, at insert/compare sites.
 
+### Seeded platform accounts
+
+Migration `000007_seed_platform_accounts` seeds a deterministic **system user** (`00000000-…-0001`, role ADMIN, unusable bcrypt hash so it can't log in) plus one of each platform account type it owns — `EXTERNAL`, `TREASURY`, `FEE_REVENUE`, `CARD_SETTLEMENT`, `ACH_CLEARING` — all with **fixed UUIDs** (`a0000000-…-0001` … `-0005`), so the ids are stable across deploys. It's idempotent (`ON CONFLICT DO NOTHING`) and runs automatically on startup like any migration. End users can't create these through the API (the service restricts USER → `USER_CASH`, ADMIN → platform types), so seeding is how a fresh deploy gets the `EXTERNAL`/`FEE_REVENUE` accounts the deposit/withdraw/fee flows reference. The frontend mirrors the fixed ids in `frontend/src/platformAccounts.ts` and prefills the platform-account fields with them.
+
 ### Balance + sign convention
 
 `repository.GetAccountBalance` returns `SUM(DEBIT) - SUM(CREDIT)` (net-debit, minor units). Positive = net inflow on debit side, negative = net inflow on credit side. Per double-entry rules, asset accounts have DEBIT as their normal balance side (balance reads positive after inflow); liability/revenue accounts have CREDIT (balance reads negative after inflow). The service/display layer flips sign per `AccountType` when rendering to users. Optional `asOf *time.Time` filters `effective_at <= asOf`; nil = current balance.

@@ -18,6 +18,7 @@ import AutorenewIcon from '@mui/icons-material/Autorenew'
 import { ApiError, deposit } from '../api'
 import { useAuth } from '../auth/context'
 import type { TransactionResponse } from '../types'
+import { PLATFORM_ACCOUNTS } from '../platformAccounts'
 import LockedFilm from './LockedFilm'
 import PanelTitle from './PanelTitle'
 
@@ -30,7 +31,9 @@ export default function DepositPanel() {
   // there's no token at all.
   const expanded = isAuthenticated
 
-  const [fromAccountId, setFromAccountId] = useState('')
+  // Prefilled with the seeded platform EXTERNAL account (migration 000007) so a
+  // deposit just needs a destination + amount.
+  const [fromAccountId, setFromAccountId] = useState(PLATFORM_ACCOUNTS.EXTERNAL)
   const [toAccountId, setToAccountId] = useState('')
   const [amount, setAmount] = useState('')
   const [currency, setCurrency] = useState('USD')
@@ -46,7 +49,7 @@ export default function DepositPanel() {
   // when a fresh token arrives.
   useEffect(() => {
     if (!isAuthenticated) return
-    setFromAccountId('')
+    setFromAccountId(PLATFORM_ACCOUNTS.EXTERNAL)
     setToAccountId('')
     setAmount('')
     setCurrency('USD')
@@ -119,6 +122,7 @@ export default function DepositPanel() {
             value={fromAccountId}
             onChange={(e) => setFromAccountId(e.target.value)}
             fullWidth
+            helperText="Prefilled: seeded platform EXTERNAL account"
             slotProps={{
               input: {
                 startAdornment: (

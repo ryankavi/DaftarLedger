@@ -18,6 +18,7 @@ import AutorenewIcon from '@mui/icons-material/Autorenew'
 import { ApiError, assessFee } from '../api'
 import { useAuth } from '../auth/context'
 import type { TransactionResponse } from '../types'
+import { PLATFORM_ACCOUNTS } from '../platformAccounts'
 import LockedFilm from './LockedFilm'
 import PanelTitle from './PanelTitle'
 
@@ -29,7 +30,8 @@ export default function AssessFeePanel() {
   const expanded = isAuthenticated && role === 'ADMIN'
 
   const [fromAccountId, setFromAccountId] = useState('')
-  const [toAccountId, setToAccountId] = useState('')
+  // Prefilled with the seeded platform FEE_REVENUE account (migration 000007).
+  const [toAccountId, setToAccountId] = useState(PLATFORM_ACCOUNTS.FEE_REVENUE)
   const [amount, setAmount] = useState('')
   const [currency, setCurrency] = useState('USD')
   const [idempotencyKey, setIdempotencyKey] = useState<string>(() =>
@@ -45,7 +47,7 @@ export default function AssessFeePanel() {
   useEffect(() => {
     if (!isAuthenticated) return
     setFromAccountId('')
-    setToAccountId('')
+    setToAccountId(PLATFORM_ACCOUNTS.FEE_REVENUE)
     setAmount('')
     setCurrency('USD')
     setIdempotencyKey(crypto.randomUUID())
@@ -138,6 +140,7 @@ export default function AssessFeePanel() {
             value={toAccountId}
             onChange={(e) => setToAccountId(e.target.value)}
             fullWidth
+            helperText="Prefilled: seeded platform FEE_REVENUE account"
             slotProps={{
               input: {
                 startAdornment: (
