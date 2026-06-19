@@ -4,10 +4,18 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
+import IconButton from '@mui/material/IconButton'
+import InputAdornment from '@mui/material/InputAdornment'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
+import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined'
+import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined'
+import NumbersIcon from '@mui/icons-material/Numbers'
+import AttachMoneyIcon from '@mui/icons-material/AttachMoney'
+import KeyOutlinedIcon from '@mui/icons-material/KeyOutlined'
+import AutorenewIcon from '@mui/icons-material/Autorenew'
 import { ApiError, deposit } from '../api'
 import { useAuth } from '../auth/context'
 import type { TransactionResponse } from '../types'
@@ -111,64 +119,100 @@ export default function DepositPanel() {
         <Stack spacing={2} sx={{ mt: 2 }}>
           {/* Inputs */}
           <TextField
+            variant="standard"
             label="From account (EXTERNAL)"
             value={fromAccountId}
             onChange={(e) => setFromAccountId(e.target.value)}
-            size="small"
             fullWidth
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <AccountBalanceOutlinedIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
+            }}
           />
           <TextField
+            variant="standard"
             label="To account (USER_CASH)"
             value={toAccountId}
             onChange={(e) => setToAccountId(e.target.value)}
-            size="small"
             fullWidth
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <AccountBalanceWalletOutlinedIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
+            }}
           />
           <TextField
+            variant="standard"
             label="Amount (minor units)"
             type="number"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            size="small"
             fullWidth
-            slotProps={{ htmlInput: { min: 1 } }}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <NumbersIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
+              htmlInput: { min: 1 },
+            }}
           />
           <TextField
+            variant="standard"
             label="Currency"
             value={currency}
             onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-            size="small"
             fullWidth
-            slotProps={{ htmlInput: { maxLength: 3 } }}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <AttachMoneyIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
+              htmlInput: { maxLength: 3 },
+            }}
           />
-          {/* Field + Randomize button, attached as one input group. */}
-          <Box>
-            <TextField
-              label="Idempotency key"
-              value={idempotencyKey}
-              onChange={(e) => setIdempotencyKey(e.target.value)}
-              size="small"
-              fullWidth
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderBottomLeftRadius: 0,
-                  borderBottomRightRadius: 0,
-                },
-              }}
-            />
-            <Button
-              variant="outlined"
-              fullWidth
-              onClick={() => setIdempotencyKey(crypto.randomUUID())}
-              sx={{
-                borderTopLeftRadius: 0,
-                borderTopRightRadius: 0,
-                mt: '-1px',
-              }}
-            >
-              Randomize
-            </Button>
-          </Box>
+          <TextField
+            variant="standard"
+            label="Idempotency key"
+            value={idempotencyKey}
+            onChange={(e) => setIdempotencyKey(e.target.value)}
+            fullWidth
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <KeyOutlinedIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setIdempotencyKey(crypto.randomUUID())}
+                      edge="end"
+                      size="small"
+                      aria-label="Randomize idempotency key"
+                    >
+                      <AutorenewIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
 
           {/* Response — between the inputs and the button */}
           {busy && (

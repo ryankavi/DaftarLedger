@@ -4,11 +4,14 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
+import InputAdornment from '@mui/material/InputAdornment'
 import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
+import CategoryOutlinedIcon from '@mui/icons-material/CategoryOutlined'
+import AttachMoneyIcon from '@mui/icons-material/AttachMoney'
 import { ApiError, createAccount } from '../api'
 import { useAuth } from '../auth/context'
 import type { AccountCreatedResponse, AccountType, UserRole } from '../types'
@@ -122,11 +125,20 @@ export default function CreateAccountPanel() {
           {/* Inputs */}
           <TextField
             select
+            variant="standard"
             label="Account type"
             value={accountType}
             onChange={(e) => setAccountType(e.target.value as AccountType)}
-            size="small"
             fullWidth
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <CategoryOutlinedIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
+            }}
           >
             {accountTypes.map((t) => (
               <MenuItem key={t} value={t}>
@@ -135,12 +147,21 @@ export default function CreateAccountPanel() {
             ))}
           </TextField>
           <TextField
+            variant="standard"
             label="Currency"
             value={currency}
             onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-            size="small"
             fullWidth
-            slotProps={{ htmlInput: { maxLength: 3 } }}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <AttachMoneyIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
+              htmlInput: { maxLength: 3 },
+            }}
           />
 
           {/* Response — between the title/inputs and the button */}

@@ -12,6 +12,9 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import Visibility from '@mui/icons-material/Visibility'
 import VisibilityOff from '@mui/icons-material/VisibilityOff'
+import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined'
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
+import AttachMoneyIcon from '@mui/icons-material/AttachMoney'
 import { ApiError } from '../api'
 import type { AccountCreatedResponse } from '../types'
 import { useAuth } from '../auth/context'
@@ -82,23 +85,37 @@ export default function SignupPanel() {
 
         {/* Inputs */}
         <TextField
+          variant="standard"
           label="Email"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          size="small"
           fullWidth
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <EmailOutlinedIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            },
+          }}
         />
         <TextField
+          variant="standard"
           label="Password"
           type={showPassword ? 'text' : 'password'}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          size="small"
           fullWidth
           helperText="Min 8 characters"
           slotProps={{
             input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <LockOutlinedIcon fontSize="small" />
+                </InputAdornment>
+              ),
               endAdornment: (
                 <InputAdornment position="end">
                   <IconButton
@@ -119,12 +136,21 @@ export default function SignupPanel() {
           }}
         />
         <TextField
+          variant="standard"
           label="Currency"
           value={currency}
           onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-          size="small"
           fullWidth
-          slotProps={{ htmlInput: { maxLength: 3 } }}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <AttachMoneyIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            },
+            htmlInput: { maxLength: 3 },
+          }}
         />
 
         {/* Response — between the inputs and the button */}

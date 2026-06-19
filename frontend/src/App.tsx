@@ -39,7 +39,7 @@ export default function App() {
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 400px))' },
+          gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 420px))' },
           justifyContent: 'center',
           rowGap: 3,
           columnGap: 5,
