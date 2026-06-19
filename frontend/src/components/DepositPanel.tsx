@@ -11,6 +11,7 @@ import Typography from '@mui/material/Typography'
 import { ApiError, deposit } from '../api'
 import { useAuth } from '../auth/context'
 import type { TransactionResponse } from '../types'
+import LockedFilm from './LockedFilm'
 
 // Calls POST /api/transactions/deposit (EXTERNAL -> USER_CASH). Admin-only: a
 // non-admin token gets a 403 surfaced in the error slot.
@@ -71,7 +72,7 @@ export default function DepositPanel() {
   }
 
   return (
-    <Paper sx={{ p: 3, width: '100%' }}>
+    <Paper sx={{ p: 3, width: '100%', position: 'relative' }}>
       {/* Title — always visible, even when the body is squished shut */}
       <Box>
         <Stack
@@ -190,6 +191,9 @@ export default function DepositPanel() {
           </Button>
         </Stack>
       </Box>
+
+      {/* Gray film + shield badge while collapsed (ADMIN-only endpoint). */}
+      <LockedFilm show={!expanded} symbol="shield" />
     </Paper>
   )
 }

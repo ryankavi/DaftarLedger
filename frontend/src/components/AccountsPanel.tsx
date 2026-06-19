@@ -13,6 +13,7 @@ import Typography from '@mui/material/Typography'
 import { ApiError, listAccounts } from '../api'
 import { useAuth } from '../auth/context'
 import type { Account } from '../types'
+import LockedFilm from './LockedFilm'
 
 // Calls GET /api/accounts for the current user. The token is attached
 // automatically by the api client from the auth context.
@@ -52,7 +53,7 @@ export default function AccountsPanel() {
   }
 
   return (
-    <Paper sx={{ p: 3, width: '100%' }}>
+    <Paper sx={{ p: 3, width: '100%', position: 'relative' }}>
       {/* Title — always visible, even when the body is squished shut */}
       <Box>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
@@ -121,6 +122,9 @@ export default function AccountsPanel() {
           </Button>
         </Stack>
       </Box>
+
+      {/* Gray film + lock badge while collapsed (USER-gated endpoint). */}
+      <LockedFilm show={!expanded} symbol="lock" />
     </Paper>
   )
 }

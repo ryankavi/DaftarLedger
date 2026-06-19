@@ -12,6 +12,7 @@ import Typography from '@mui/material/Typography'
 import { ApiError, createAccount } from '../api'
 import { useAuth } from '../auth/context'
 import type { AccountCreatedResponse, AccountType, UserRole } from '../types'
+import LockedFilm from './LockedFilm'
 
 // Account creation always owns the new account to the caller, so the two roles
 // create disjoint sets: a USER self-serves their own wallet; an ADMIN provisions
@@ -86,7 +87,7 @@ export default function CreateAccountPanel() {
   }
 
   return (
-    <Paper sx={{ p: 3, width: '100%' }}>
+    <Paper sx={{ p: 3, width: '100%', position: 'relative' }}>
       {/* Title — always visible, even when the body is squished shut */}
       <Box>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
@@ -163,6 +164,9 @@ export default function CreateAccountPanel() {
           </Button>
         </Stack>
       </Box>
+
+      {/* Gray film + lock badge while collapsed (any authenticated USER/ADMIN). */}
+      <LockedFilm show={!expanded} symbol="lock" />
     </Paper>
   )
 }
