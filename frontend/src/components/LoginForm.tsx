@@ -7,7 +7,6 @@ import InputAdornment from '@mui/material/InputAdornment'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
-import Typography from '@mui/material/Typography'
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined'
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
 import Visibility from '@mui/icons-material/Visibility'
@@ -15,6 +14,7 @@ import VisibilityOff from '@mui/icons-material/VisibilityOff'
 import { ApiError } from '../api'
 import { useAuth } from '../auth/context'
 import { glowBorderSx } from '../animations'
+import PanelTitle from './PanelTitle'
 
 // Minimal, borderless login: underlined `standard` inputs with leading icons
 // and a show/hide password toggle. Self-contained — owns its form state and
@@ -67,7 +67,7 @@ export default function LoginForm() {
       >
         <Stack component="form" spacing={3} onSubmit={handleSubmit}>
           <Stack spacing={1} sx={{ alignItems: 'center' }}>
-            <Typography variant="h6">Request auth token</Typography>
+            <PanelTitle>Request Auth Token</PanelTitle>
           </Stack>
           {error && <Alert severity="error">{error}</Alert>}
           <TextField

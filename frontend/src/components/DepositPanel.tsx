@@ -19,6 +19,7 @@ import { ApiError, deposit } from '../api'
 import { useAuth } from '../auth/context'
 import type { TransactionResponse } from '../types'
 import LockedFilm from './LockedFilm'
+import PanelTitle from './PanelTitle'
 
 // Calls POST /api/transactions/deposit (EXTERNAL -> USER_CASH). The endpoint is
 // admin-only on the backend (a non-admin POST gets a 403 in the error slot), but
@@ -82,6 +83,7 @@ export default function DepositPanel() {
     <Paper sx={{ p: 3, width: '100%', position: 'relative' }}>
       {/* Title — always visible, even when the body is squished shut */}
       <Box>
+        <PanelTitle>Deposit Cash</PanelTitle>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           <Chip label="POST" size="small" color="primary" />
           <Typography variant="subtitle1" sx={{ fontFamily: 'monospace' }}>

@@ -14,6 +14,7 @@ import { ApiError, listAccounts } from '../api'
 import { useAuth } from '../auth/context'
 import type { Account } from '../types'
 import LockedFilm from './LockedFilm'
+import PanelTitle from './PanelTitle'
 
 // Calls GET /api/accounts for the current user. The token is attached
 // automatically by the api client from the auth context.
@@ -56,6 +57,7 @@ export default function AccountsPanel() {
     <Paper sx={{ p: 3, width: '100%', position: 'relative' }}>
       {/* Title — always visible, even when the body is squished shut */}
       <Box>
+        <PanelTitle>List Accounts</PanelTitle>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           <Chip label="GET" size="small" color="primary" />
           <Typography variant="subtitle1" sx={{ fontFamily: 'monospace' }}>

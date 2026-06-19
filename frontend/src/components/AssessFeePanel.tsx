@@ -19,6 +19,7 @@ import { ApiError, assessFee } from '../api'
 import { useAuth } from '../auth/context'
 import type { TransactionResponse } from '../types'
 import LockedFilm from './LockedFilm'
+import PanelTitle from './PanelTitle'
 
 // Calls POST /api/transactions/assess-fee (USER_CASH -> FEE_REVENUE). Admin-only:
 // a non-admin token gets a 403 surfaced in the error slot.
@@ -80,6 +81,7 @@ export default function AssessFeePanel() {
     <Paper sx={{ p: 3, width: '100%', position: 'relative' }}>
       {/* Title — always visible, even when the body is squished shut */}
       <Box>
+        <PanelTitle>Assess Fee</PanelTitle>
         <Stack
           direction="row"
           spacing={1}

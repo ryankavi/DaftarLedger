@@ -19,6 +19,7 @@ import { ApiError } from '../api'
 import type { AccountCreatedResponse } from '../types'
 import { useAuth } from '../auth/context'
 import { glowBorderSx } from '../animations'
+import PanelTitle from './PanelTitle'
 
 // Calls POST /api/signup via the auth context (signup returns a token, so it
 // logs you in immediately). Glowing, like the login form.
@@ -80,6 +81,9 @@ export default function SignupPanel() {
       <Stack spacing={2}>
         {/* Title */}
         <Box>
+          <Box sx={{ textAlign: 'center' }}>
+            <PanelTitle>Sign Up</PanelTitle>
+          </Box>
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
             <Chip label="POST" size="small" color="primary" />
             <Typography variant="subtitle1" sx={{ fontFamily: 'monospace' }}>

@@ -15,6 +15,7 @@ import { ApiError, getAccountBalance } from '../api'
 import { useAuth } from '../auth/context'
 import type { AccountBalanceResponse } from '../types'
 import LockedFilm from './LockedFilm'
+import PanelTitle from './PanelTitle'
 
 // Calls GET /api/accounts/{id}/balance for the current user. Any authenticated
 // user may read their own account's balance, so it's user-gated (lock film).
@@ -58,6 +59,7 @@ export default function AccountBalancePanel() {
     <Paper sx={{ p: 3, width: '100%', position: 'relative' }}>
       {/* Title — always visible, even when the body is squished shut */}
       <Box>
+        <PanelTitle>Account Balance</PanelTitle>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           <Chip label="GET" size="small" color="primary" />
           <Typography variant="subtitle1" sx={{ fontFamily: 'monospace' }}>

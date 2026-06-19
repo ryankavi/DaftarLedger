@@ -19,6 +19,7 @@ import { ApiError, withdraw } from '../api'
 import { useAuth } from '../auth/context'
 import type { TransactionResponse } from '../types'
 import LockedFilm from './LockedFilm'
+import PanelTitle from './PanelTitle'
 
 // Calls POST /api/transactions/withdraw (USER_CASH -> EXTERNAL). User-gated:
 // the backend requires the caller to own the `from` account.
@@ -79,6 +80,7 @@ export default function WithdrawPanel() {
     <Paper sx={{ p: 3, width: '100%', position: 'relative' }}>
       {/* Title — always visible, even when the body is squished shut */}
       <Box>
+        <PanelTitle>Withdraw Cash</PanelTitle>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           <Chip label="POST" size="small" color="primary" />
           <Typography variant="subtitle1" sx={{ fontFamily: 'monospace' }}>

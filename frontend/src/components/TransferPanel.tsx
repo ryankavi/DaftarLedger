@@ -18,6 +18,7 @@ import { ApiError, transfer } from '../api'
 import { useAuth } from '../auth/context'
 import type { TransactionResponse } from '../types'
 import LockedFilm from './LockedFilm'
+import PanelTitle from './PanelTitle'
 
 // Calls POST /api/transactions/transfer (USER_CASH -> USER_CASH). User-gated:
 // the backend requires the caller to own the `from` account.
@@ -78,6 +79,7 @@ export default function TransferPanel() {
     <Paper sx={{ p: 3, width: '100%', position: 'relative' }}>
       {/* Title — always visible, even when the body is squished shut */}
       <Box>
+        <PanelTitle>Transfer Cash</PanelTitle>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           <Chip label="POST" size="small" color="primary" />
           <Typography variant="subtitle1" sx={{ fontFamily: 'monospace' }}>

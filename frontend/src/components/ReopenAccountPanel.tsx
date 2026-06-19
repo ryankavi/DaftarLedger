@@ -13,6 +13,7 @@ import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalance
 import { ApiError, reopenAccount } from '../api'
 import { useAuth } from '../auth/context'
 import LockedFilm from './LockedFilm'
+import PanelTitle from './PanelTitle'
 
 // Calls POST /api/accounts/{id}/reopen. Any authenticated user may reopen their
 // own frozen account, so it's user-gated (lock film).
@@ -54,6 +55,7 @@ export default function ReopenAccountPanel() {
     <Paper sx={{ p: 3, width: '100%', position: 'relative' }}>
       {/* Title — always visible, even when the body is squished shut */}
       <Box>
+        <PanelTitle>Reopen Account</PanelTitle>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           <Chip label="POST" size="small" color="primary" />
           <Typography variant="subtitle1" sx={{ fontFamily: 'monospace' }}>
