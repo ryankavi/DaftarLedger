@@ -10,23 +10,20 @@ import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined'
 import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined'
+import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined'
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney'
 import KeyOutlinedIcon from '@mui/icons-material/KeyOutlined'
 import AutorenewIcon from '@mui/icons-material/Autorenew'
-import { ApiError, deposit } from '../api'
+import { ApiError, withdraw } from '../api'
 import { useAuth } from '../auth/context'
 import type { TransactionResponse } from '../types'
 import LockedFilm from './LockedFilm'
 
-// Calls POST /api/transactions/deposit (EXTERNAL -> USER_CASH). The endpoint is
-// admin-only on the backend (a non-admin POST gets a 403 in the error slot), but
-// the panel is intentionally open to any authenticated user.
-export default function DepositPanel() {
+// Calls POST /api/transactions/withdraw (USER_CASH -> EXTERNAL). User-gated:
+// the backend requires the caller to own the `from` account.
+export default function WithdrawPanel() {
   const { isAuthenticated } = useAuth()
-  // Not role-gated: any authenticated user sees the form. Squish shut only when
-  // there's no token at all.
   const expanded = isAuthenticated
 
   const [fromAccountId, setFromAccountId] = useState('')
@@ -59,7 +56,7 @@ export default function DepositPanel() {
     setResult(null)
     setBusy(true)
     try {
-      const res = await deposit({
+      const res = await withdraw({
         from_account_id: fromAccountId,
         to_account_id: toAccountId,
         amount: Math.round(Number(amount) * 100),
@@ -67,7 +64,7 @@ export default function DepositPanel() {
         idempotency_key: idempotencyKey,
       })
       setResult(res)
-      // Roll a fresh key so the next deposit isn't deduped against this one.
+      // Roll a fresh key so the next withdraw isn't deduped against this one.
       setIdempotencyKey(crypto.randomUUID())
     } catch (err) {
       setError(
@@ -85,11 +82,11 @@ export default function DepositPanel() {
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           <Chip label="POST" size="small" color="primary" />
           <Typography variant="subtitle1" sx={{ fontFamily: 'monospace' }}>
-            /api/transactions/deposit
+            /api/transactions/withdraw
           </Typography>
         </Stack>
         <Typography variant="caption" color="text.secondary">
-          Deposit cash: EXTERNAL → USER_CASH
+          Withdraw cash: USER_CASH → EXTERNAL (you must own the source)
         </Typography>
       </Box>
 
@@ -113,7 +110,7 @@ export default function DepositPanel() {
           {/* Inputs */}
           <TextField
             variant="standard"
-            label="From account (EXTERNAL)"
+            label="From account (USER_CASH)"
             value={fromAccountId}
             onChange={(e) => setFromAccountId(e.target.value)}
             fullWidth
@@ -121,7 +118,7 @@ export default function DepositPanel() {
               input: {
                 startAdornment: (
                   <InputAdornment position="start">
-                    <AccountBalanceOutlinedIcon fontSize="small" />
+                    <AccountBalanceWalletOutlinedIcon fontSize="small" />
                   </InputAdornment>
                 ),
               },
@@ -129,7 +126,7 @@ export default function DepositPanel() {
           />
           <TextField
             variant="standard"
-            label="To account (USER_CASH)"
+            label="To account (EXTERNAL)"
             value={toAccountId}
             onChange={(e) => setToAccountId(e.target.value)}
             fullWidth
@@ -137,7 +134,7 @@ export default function DepositPanel() {
               input: {
                 startAdornment: (
                   <InputAdornment position="start">
-                    <AccountBalanceWalletOutlinedIcon fontSize="small" />
+                    <AccountBalanceOutlinedIcon fontSize="small" />
                   </InputAdornment>
                 ),
               },
@@ -223,7 +220,7 @@ export default function DepositPanel() {
         </Stack>
       </Box>
 
-      {/* Gray film + lock badge while collapsed (open to any authenticated user). */}
+      {/* Gray film + lock badge while collapsed (user-gated endpoint). */}
       <LockedFilm show={!expanded} symbol="lock" />
     </Paper>
   )

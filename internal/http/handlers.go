@@ -397,12 +397,23 @@ func (s *Server) adminOnly(ctx context.Context, _ transactionRequest) error {
 	return nil
 }
 
+// adminOrOwnsTo authorizes deposit: an admin may fund any account (platform
+// operation), and any user may fund a destination account they own. Deposit is
+// EXTERNAL -> USER_CASH, so for a non-admin this means topping up their own
+// wallet.
+func (s *Server) adminOrOwnsTo(ctx context.Context, req transactionRequest) error {
+	if s.isAdmin(ctx) {
+		return nil
+	}
+	return s.assertOwns(ctx, req.ToAccountID)
+}
+
 func (s *Server) cashTransfer(w http.ResponseWriter, r *http.Request) {
 	s.postTransaction(w, r, service.PostCashTransfer, s.ownsFrom)
 }
 
 func (s *Server) deposit(w http.ResponseWriter, r *http.Request) {
-	s.postTransaction(w, r, service.PostDeposit, s.adminOnly)
+	s.postTransaction(w, r, service.PostDeposit, s.adminOrOwnsTo)
 }
 
 func (s *Server) withdraw(w http.ResponseWriter, r *http.Request) {

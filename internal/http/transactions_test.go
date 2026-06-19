@@ -97,15 +97,34 @@ func TestDeposit_Admin(t *testing.T) {
 	require.Equal(t, http.StatusCreated, rec.Code)
 }
 
-// A user-role token cannot call deposit — authz rejects before any DB work, so
-// the account ids don't even need to exist.
-func TestDeposit_NonAdminForbidden(t *testing.T) {
+// A non-admin may deposit into a destination account they own (topping up their
+// own wallet from an EXTERNAL account).
+func TestDeposit_NonAdminOwnsDestination(t *testing.T) {
+	truncateAll(t)
+	srv := newTestServer(t)
+	userID, userToken := seedUser(t, srv, "u@example.com", models.RoleUser)
+	to := seedAccount(t, userID, models.AccountUserCash, "USD")
+	extOwner := createUser(t, "ext@example.com", models.RoleUser)
+	ext := seedAccount(t, extOwner, models.AccountExternal, "USD")
+
+	rec := doJSON(t, srv, "POST", "/api/transactions/deposit", userToken,
+		transactionBody(ext.AccountID, to.AccountID, 1000, "USD", "idem-deposit-own"))
+
+	require.Equal(t, http.StatusCreated, rec.Code)
+}
+
+// A non-admin cannot deposit into an account owned by someone else.
+func TestDeposit_NonAdminNotOwnerForbidden(t *testing.T) {
 	truncateAll(t)
 	srv := newTestServer(t)
 	_, userToken := seedUser(t, srv, "u@example.com", models.RoleUser)
+	other := createUser(t, "other@example.com", models.RoleUser)
+	to := seedAccount(t, other, models.AccountUserCash, "USD")
+	extOwner := createUser(t, "ext@example.com", models.RoleUser)
+	ext := seedAccount(t, extOwner, models.AccountExternal, "USD")
 
 	rec := doJSON(t, srv, "POST", "/api/transactions/deposit", userToken,
-		transactionBody("from-id", "to-id", 1000, "USD", "idem-deposit-user"))
+		transactionBody(ext.AccountID, to.AccountID, 1000, "USD", "idem-deposit-notowner"))
 
 	require.Equal(t, http.StatusForbidden, rec.Code)
 }

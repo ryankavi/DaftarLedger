@@ -20,7 +20,7 @@ import { glowBorderSx } from '../animations'
 // and a show/hide password toggle. Self-contained — owns its form state and
 // talks to the auth context directly, so App only has to render it.
 export default function LoginForm() {
-  const { login, logoutNonce } = useAuth()
+  const { login, logoutNonce, isAuthenticated } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -61,7 +61,8 @@ export default function LoginForm() {
         sx={{
           width: '100%',
           p: 4,
-          ...glowBorderSx,
+          // Glow only until a token is loaded; calm once authenticated.
+          ...(isAuthenticated ? {} : glowBorderSx),
         }}
       >
         <Stack component="form" spacing={3} onSubmit={handleSubmit}>

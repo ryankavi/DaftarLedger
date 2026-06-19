@@ -10,29 +10,24 @@ import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined'
-import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined'
-import AttachMoneyIcon from '@mui/icons-material/AttachMoney'
+import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined'
+import NotesOutlinedIcon from '@mui/icons-material/NotesOutlined'
 import KeyOutlinedIcon from '@mui/icons-material/KeyOutlined'
 import AutorenewIcon from '@mui/icons-material/Autorenew'
-import { ApiError, deposit } from '../api'
+import { ApiError, reverseTransaction } from '../api'
 import { useAuth } from '../auth/context'
 import type { TransactionResponse } from '../types'
 import LockedFilm from './LockedFilm'
 
-// Calls POST /api/transactions/deposit (EXTERNAL -> USER_CASH). The endpoint is
-// admin-only on the backend (a non-admin POST gets a 403 in the error slot), but
-// the panel is intentionally open to any authenticated user.
-export default function DepositPanel() {
-  const { isAuthenticated } = useAuth()
-  // Not role-gated: any authenticated user sees the form. Squish shut only when
-  // there's no token at all.
-  const expanded = isAuthenticated
+// Calls POST /api/transactions/{id}/reverse. Admin-only: a non-admin token gets
+// a 403 surfaced in the error slot.
+export default function ReversePanel() {
+  const { isAuthenticated, role } = useAuth()
+  // Admin-only platform flow, so the panel only stays open for an ADMIN token.
+  const expanded = isAuthenticated && role === 'ADMIN'
 
-  const [fromAccountId, setFromAccountId] = useState('')
-  const [toAccountId, setToAccountId] = useState('')
-  const [amount, setAmount] = useState('')
-  const [currency, setCurrency] = useState('USD')
+  const [transactionId, setTransactionId] = useState('')
+  const [memo, setMemo] = useState('')
   const [idempotencyKey, setIdempotencyKey] = useState<string>(() =>
     crypto.randomUUID(),
   )
@@ -45,10 +40,8 @@ export default function DepositPanel() {
   // when a fresh token arrives.
   useEffect(() => {
     if (!isAuthenticated) return
-    setFromAccountId('')
-    setToAccountId('')
-    setAmount('')
-    setCurrency('USD')
+    setTransactionId('')
+    setMemo('')
     setIdempotencyKey(crypto.randomUUID())
     setResult(null)
     setError(null)
@@ -59,15 +52,12 @@ export default function DepositPanel() {
     setResult(null)
     setBusy(true)
     try {
-      const res = await deposit({
-        from_account_id: fromAccountId,
-        to_account_id: toAccountId,
-        amount: Math.round(Number(amount) * 100),
-        currency,
+      const res = await reverseTransaction(transactionId, {
         idempotency_key: idempotencyKey,
+        memo: memo || undefined,
       })
       setResult(res)
-      // Roll a fresh key so the next deposit isn't deduped against this one.
+      // Roll a fresh key so the next reversal isn't deduped against this one.
       setIdempotencyKey(crypto.randomUUID())
     } catch (err) {
       setError(
@@ -82,18 +72,23 @@ export default function DepositPanel() {
     <Paper sx={{ p: 3, width: '100%', position: 'relative' }}>
       {/* Title — always visible, even when the body is squished shut */}
       <Box>
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+        >
           <Chip label="POST" size="small" color="primary" />
           <Typography variant="subtitle1" sx={{ fontFamily: 'monospace' }}>
-            /api/transactions/deposit
+            {'/api/transactions/{id}/reverse'}
           </Typography>
+          <Chip label="ADMIN" size="small" color="warning" />
         </Stack>
         <Typography variant="caption" color="text.secondary">
-          Deposit cash: EXTERNAL → USER_CASH
+          Reverse a posted transaction with opposing entries (admin only)
         </Typography>
       </Box>
 
-      {/* Body — collapses with a vertical squish when there's no token. */}
+      {/* Body — collapses with a vertical squish when the caller isn't an admin. */}
       <Box
         aria-hidden={!expanded}
         sx={{
@@ -103,7 +98,7 @@ export default function DepositPanel() {
             theme.transitions.create(['max-height', 'transform', 'opacity'], {
               duration: theme.transitions.duration.standard,
             }),
-          maxHeight: expanded ? '50rem' : 0,
+          maxHeight: expanded ? '40rem' : 0,
           transform: expanded ? 'scaleY(1)' : 'scaleY(0)',
           opacity: expanded ? 1 : 0,
           pointerEvents: expanded ? 'auto' : 'none',
@@ -113,15 +108,15 @@ export default function DepositPanel() {
           {/* Inputs */}
           <TextField
             variant="standard"
-            label="From account (EXTERNAL)"
-            value={fromAccountId}
-            onChange={(e) => setFromAccountId(e.target.value)}
+            label="Transaction ID"
+            value={transactionId}
+            onChange={(e) => setTransactionId(e.target.value)}
             fullWidth
             slotProps={{
               input: {
                 startAdornment: (
                   <InputAdornment position="start">
-                    <AccountBalanceOutlinedIcon fontSize="small" />
+                    <ReceiptLongOutlinedIcon fontSize="small" />
                   </InputAdornment>
                 ),
               },
@@ -129,49 +124,20 @@ export default function DepositPanel() {
           />
           <TextField
             variant="standard"
-            label="To account (USER_CASH)"
-            value={toAccountId}
-            onChange={(e) => setToAccountId(e.target.value)}
+            label="Memo (optional)"
+            value={memo}
+            onChange={(e) => setMemo(e.target.value)}
             fullWidth
             slotProps={{
               input: {
                 startAdornment: (
                   <InputAdornment position="start">
-                    <AccountBalanceWalletOutlinedIcon fontSize="small" />
+                    <NotesOutlinedIcon fontSize="small" />
                   </InputAdornment>
                 ),
               },
             }}
           />
-          {/* Currency (short, $ icon) + Amount side by side */}
-          <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-end' }}>
-            <TextField
-              variant="standard"
-              label="Currency"
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-              sx={{ width: 110, flexShrink: 0 }}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <AttachMoneyIcon fontSize="small" />
-                    </InputAdornment>
-                  ),
-                },
-                htmlInput: { maxLength: 3 },
-              }}
-            />
-            <TextField
-              variant="standard"
-              label="Amount (dollars)"
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              sx={{ flex: 1 }}
-              slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
-            />
-          </Stack>
           <TextField
             variant="standard"
             label="Idempotency key"
@@ -223,8 +189,8 @@ export default function DepositPanel() {
         </Stack>
       </Box>
 
-      {/* Gray film + lock badge while collapsed (open to any authenticated user). */}
-      <LockedFilm show={!expanded} symbol="lock" />
+      {/* Gray film + shield badge while collapsed (ADMIN-only endpoint). */}
+      <LockedFilm show={!expanded} symbol="shield" />
     </Paper>
   )
 }

@@ -5,6 +5,15 @@ import LoginForm from './components/LoginForm'
 import SignupPanel from './components/SignupPanel'
 import CreateAccountPanel from './components/CreateAccountPanel'
 import AccountsPanel from './components/AccountsPanel'
+import AccountBalancePanel from './components/AccountBalancePanel'
+import CloseAccountPanel from './components/CloseAccountPanel'
+import FreezeAccountPanel from './components/FreezeAccountPanel'
+import ReopenAccountPanel from './components/ReopenAccountPanel'
+import TransferPanel from './components/TransferPanel'
+import WithdrawPanel from './components/WithdrawPanel'
+import AssessFeePanel from './components/AssessFeePanel'
+import RefundFeePanel from './components/RefundFeePanel'
+import ReversePanel from './components/ReversePanel'
 import DepositPanel from './components/DepositPanel'
 import TokenStatus from './components/TokenStatus'
 import { useAuth } from './auth/context'
@@ -39,7 +48,7 @@ export default function App() {
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 420px))' },
+          gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 441px))' },
           justifyContent: 'center',
           rowGap: 3,
           columnGap: 5,
@@ -50,9 +59,21 @@ export default function App() {
       >
         <LoginForm />
         <SignupPanel />
+        {/* Deposit spans the full width — its own double-width row. */}
+        <Box sx={{ gridColumn: '1 / -1' }}>
+          <DepositPanel />
+        </Box>
         <CreateAccountPanel />
         <AccountsPanel />
-        <DepositPanel />
+        <AccountBalancePanel />
+        <CloseAccountPanel />
+        <FreezeAccountPanel />
+        <ReopenAccountPanel />
+        <TransferPanel />
+        <WithdrawPanel />
+        <AssessFeePanel />
+        <RefundFeePanel />
+        <ReversePanel />
       </Box>
     </Box>
   )

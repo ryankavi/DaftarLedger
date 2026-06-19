@@ -23,7 +23,7 @@ import { glowBorderSx } from '../animations'
 // Calls POST /api/signup via the auth context (signup returns a token, so it
 // logs you in immediately). Glowing, like the login form.
 export default function SignupPanel() {
-  const { signup, logoutNonce } = useAuth()
+  const { signup, logoutNonce, isAuthenticated } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -68,7 +68,15 @@ export default function SignupPanel() {
   }
 
   return (
-    <Paper elevation={0} sx={{ p: 3, width: '100%', ...glowBorderSx }}>
+    <Paper
+      elevation={0}
+      sx={{
+        p: 3,
+        width: '100%',
+        // Glow only until a token is loaded; calm once authenticated.
+        ...(isAuthenticated ? {} : glowBorderSx),
+      }}
+    >
       <Stack spacing={2}>
         {/* Title */}
         <Box>
