@@ -21,6 +21,7 @@ import type { TransactionResponse } from '../types'
 import { PLATFORM_ACCOUNTS } from '../platformAccounts'
 import LockedFilm from './LockedFilm'
 import PanelTitle from './PanelTitle'
+import HelpPopover from './HelpPopover'
 
 // Calls POST /api/transactions/deposit (EXTERNAL -> USER_CASH). The endpoint is
 // admin-only on the backend (a non-admin POST gets a 403 in the error slot), but
@@ -84,6 +85,15 @@ export default function DepositPanel() {
 
   return (
     <Paper sx={{ p: 3, width: '100%', position: 'relative' }}>
+      {/* Top-right help. Customize the paragraphs below per panel. */}
+      <HelpPopover>
+        <p>
+          Move external funds into a USER_CASH wallet (EXTERNAL → USER_CASH). The
+          "From" field is prefilled with the seeded platform EXTERNAL account.
+        </p>
+        <p>Enter your wallet's account id and a dollar amount, then send.</p>
+      </HelpPopover>
+
       {/* Title — always visible, even when the body is squished shut */}
       <Box>
         <PanelTitle>Deposit Cash</PanelTitle>

@@ -20,6 +20,7 @@ import type { AccountCreatedResponse } from '../types'
 import { useAuth } from '../auth/context'
 import { glowBorderSx } from '../animations'
 import PanelTitle from './PanelTitle'
+import HelpPopover from './HelpPopover'
 
 // Calls POST /api/signup via the auth context (signup returns a token, so it
 // logs you in immediately). Glowing, like the login form.
@@ -74,10 +75,17 @@ export default function SignupPanel() {
       sx={{
         p: 3,
         width: '100%',
+        position: 'relative',
         // Glow only until a token is loaded; calm once authenticated.
         ...(isAuthenticated ? {} : glowBorderSx),
       }}
     >
+      <HelpPopover>
+        <p>
+          Create a new user and their first USER_CASH wallet in one step. Signup
+          returns a token, so you're logged in immediately.
+        </p>
+      </HelpPopover>
       <Stack spacing={2}>
         {/* Title */}
         <Box>

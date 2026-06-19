@@ -19,6 +19,7 @@ import { useAuth } from '../auth/context'
 import type { TransactionResponse } from '../types'
 import LockedFilm from './LockedFilm'
 import PanelTitle from './PanelTitle'
+import HelpPopover from './HelpPopover'
 
 // Calls POST /api/transactions/transfer (USER_CASH -> USER_CASH). User-gated:
 // the backend requires the caller to own the `from` account.
@@ -77,6 +78,14 @@ export default function TransferPanel() {
 
   return (
     <Paper sx={{ p: 3, width: '100%', position: 'relative' }}>
+      <HelpPopover>
+        <p>
+          Move cash between two USER_CASH wallets (USER_CASH → USER_CASH). You
+          must own the source account.
+        </p>
+        <p>Enter both account ids and a dollar amount, then send.</p>
+      </HelpPopover>
+
       {/* Title — always visible, even when the body is squished shut */}
       <Box>
         <PanelTitle>Transfer Cash</PanelTitle>

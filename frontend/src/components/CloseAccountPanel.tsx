@@ -14,6 +14,7 @@ import { ApiError, closeAccount } from '../api'
 import { useAuth } from '../auth/context'
 import LockedFilm from './LockedFilm'
 import PanelTitle from './PanelTitle'
+import HelpPopover from './HelpPopover'
 
 // Calls POST /api/accounts/{id}/close. Any authenticated user may close their
 // own account, so it's user-gated (lock film).
@@ -53,6 +54,12 @@ export default function CloseAccountPanel() {
 
   return (
     <Paper sx={{ p: 3, width: '100%', position: 'relative' }}>
+      <HelpPopover>
+        <p>
+          Close an open or frozen account. Its balance must be zero first.
+        </p>
+      </HelpPopover>
+
       {/* Title — always visible, even when the body is squished shut */}
       <Box>
         <PanelTitle>Close Account</PanelTitle>

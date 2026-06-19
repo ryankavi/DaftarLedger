@@ -15,6 +15,7 @@ import { useAuth } from '../auth/context'
 import type { Account } from '../types'
 import LockedFilm from './LockedFilm'
 import PanelTitle from './PanelTitle'
+import HelpPopover from './HelpPopover'
 
 // Calls GET /api/accounts for the current user. The token is attached
 // automatically by the api client from the auth context.
@@ -55,6 +56,13 @@ export default function AccountsPanel() {
 
   return (
     <Paper sx={{ p: 3, width: '100%', position: 'relative' }}>
+      <HelpPopover>
+        <p>
+          List the accounts owned by the currently authenticated user — each
+          account's type, currency, and status.
+        </p>
+      </HelpPopover>
+
       {/* Title — always visible, even when the body is squished shut */}
       <Box>
         <PanelTitle>List Accounts</PanelTitle>

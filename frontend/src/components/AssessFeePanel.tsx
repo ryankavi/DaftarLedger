@@ -21,6 +21,7 @@ import type { TransactionResponse } from '../types'
 import { PLATFORM_ACCOUNTS } from '../platformAccounts'
 import LockedFilm from './LockedFilm'
 import PanelTitle from './PanelTitle'
+import HelpPopover from './HelpPopover'
 
 // Calls POST /api/transactions/assess-fee (USER_CASH -> FEE_REVENUE). Admin-only:
 // a non-admin token gets a 403 surfaced in the error slot.
@@ -81,6 +82,14 @@ export default function AssessFeePanel() {
 
   return (
     <Paper sx={{ p: 3, width: '100%', position: 'relative' }}>
+      <HelpPopover>
+        <p>
+          Charge a fee from a user's wallet to the FEE_REVENUE book (USER_CASH →
+          FEE_REVENUE). Admin only.
+        </p>
+        <p>The "To" field is prefilled with the seeded platform FEE_REVENUE account.</p>
+      </HelpPopover>
+
       {/* Title — always visible, even when the body is squished shut */}
       <Box>
         <PanelTitle>Assess Fee</PanelTitle>

@@ -15,6 +15,7 @@ import { ApiError } from '../api'
 import { useAuth } from '../auth/context'
 import { glowBorderSx } from '../animations'
 import PanelTitle from './PanelTitle'
+import HelpPopover from './HelpPopover'
 
 // Minimal, borderless login: underlined `standard` inputs with leading icons
 // and a show/hide password toggle. Self-contained — owns its form state and
@@ -61,10 +62,18 @@ export default function LoginForm() {
         sx={{
           width: '100%',
           p: 4,
+          position: 'relative',
           // Glow only until a token is loaded; calm once authenticated.
           ...(isAuthenticated ? {} : glowBorderSx),
         }}
       >
+        <HelpPopover>
+          <p>
+            Log in with your email and password to receive a bearer token. The
+            token authorizes every other panel — once you have one, the glow
+            stops and the panels unlock.
+          </p>
+        </HelpPopover>
         <Stack component="form" spacing={3} onSubmit={handleSubmit}>
           <Stack spacing={1} sx={{ alignItems: 'center' }}>
             <PanelTitle>Request Auth Token</PanelTitle>

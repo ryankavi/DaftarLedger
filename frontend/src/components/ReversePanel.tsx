@@ -19,6 +19,7 @@ import { useAuth } from '../auth/context'
 import type { TransactionResponse } from '../types'
 import LockedFilm from './LockedFilm'
 import PanelTitle from './PanelTitle'
+import HelpPopover from './HelpPopover'
 
 // Calls POST /api/transactions/{id}/reverse. Admin-only: a non-admin token gets
 // a 403 surfaced in the error slot.
@@ -71,6 +72,13 @@ export default function ReversePanel() {
 
   return (
     <Paper sx={{ p: 3, width: '100%', position: 'relative' }}>
+      <HelpPopover>
+        <p>
+          Reverse a posted transaction by id, creating an opposing set of
+          entries. Optionally include a memo. Admin only.
+        </p>
+      </HelpPopover>
+
       {/* Title — always visible, even when the body is squished shut */}
       <Box>
         <PanelTitle>Reverse Transaction</PanelTitle>

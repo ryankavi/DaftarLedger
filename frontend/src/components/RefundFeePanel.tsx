@@ -21,6 +21,7 @@ import type { TransactionResponse } from '../types'
 import { PLATFORM_ACCOUNTS } from '../platformAccounts'
 import LockedFilm from './LockedFilm'
 import PanelTitle from './PanelTitle'
+import HelpPopover from './HelpPopover'
 
 // Calls POST /api/transactions/refund-fee (FEE_REVENUE -> USER_CASH). Admin-only:
 // a non-admin token gets a 403 surfaced in the error slot.
@@ -81,6 +82,14 @@ export default function RefundFeePanel() {
 
   return (
     <Paper sx={{ p: 3, width: '100%', position: 'relative' }}>
+      <HelpPopover>
+        <p>
+          Refund a previously assessed fee from the FEE_REVENUE book back to a
+          user's wallet (FEE_REVENUE → USER_CASH). Admin only.
+        </p>
+        <p>The "From" field is prefilled with the seeded platform FEE_REVENUE account.</p>
+      </HelpPopover>
+
       {/* Title — always visible, even when the body is squished shut */}
       <Box>
         <PanelTitle>Refund Fee</PanelTitle>

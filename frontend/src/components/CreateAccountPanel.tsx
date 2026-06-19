@@ -17,6 +17,7 @@ import { useAuth } from '../auth/context'
 import type { AccountCreatedResponse, AccountType, UserRole } from '../types'
 import LockedFilm from './LockedFilm'
 import PanelTitle from './PanelTitle'
+import HelpPopover from './HelpPopover'
 
 // Account creation always owns the new account to the caller, so the two roles
 // create disjoint sets: a USER self-serves their own wallet; an ADMIN provisions
@@ -92,6 +93,13 @@ export default function CreateAccountPanel() {
 
   return (
     <Paper sx={{ p: 3, width: '100%', position: 'relative' }}>
+      <HelpPopover>
+        <p>
+          Create an account owned by you. Regular users can open a USER_CASH
+          wallet; admins provision the platform account types.
+        </p>
+      </HelpPopover>
+
       {/* Title — always visible, even when the body is squished shut */}
       <Box>
         <PanelTitle>Create Account</PanelTitle>

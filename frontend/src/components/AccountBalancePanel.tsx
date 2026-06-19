@@ -16,6 +16,7 @@ import { useAuth } from '../auth/context'
 import type { AccountBalanceResponse } from '../types'
 import LockedFilm from './LockedFilm'
 import PanelTitle from './PanelTitle'
+import HelpPopover from './HelpPopover'
 
 // Calls GET /api/accounts/{id}/balance for the current user. Any authenticated
 // user may read their own account's balance, so it's user-gated (lock film).
@@ -57,6 +58,13 @@ export default function AccountBalancePanel() {
 
   return (
     <Paper sx={{ p: 3, width: '100%', position: 'relative' }}>
+      <HelpPopover>
+        <p>
+          Look up an account's net balance in minor units. Optionally pass an
+          "as of" timestamp to see the balance at a point in time.
+        </p>
+      </HelpPopover>
+
       {/* Title — always visible, even when the body is squished shut */}
       <Box>
         <PanelTitle>Account Balance</PanelTitle>

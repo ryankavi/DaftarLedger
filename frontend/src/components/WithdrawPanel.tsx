@@ -21,6 +21,7 @@ import type { TransactionResponse } from '../types'
 import { PLATFORM_ACCOUNTS } from '../platformAccounts'
 import LockedFilm from './LockedFilm'
 import PanelTitle from './PanelTitle'
+import HelpPopover from './HelpPopover'
 
 // Calls POST /api/transactions/withdraw (USER_CASH -> EXTERNAL). User-gated:
 // the backend requires the caller to own the `from` account.
@@ -80,6 +81,14 @@ export default function WithdrawPanel() {
 
   return (
     <Paper sx={{ p: 3, width: '100%', position: 'relative' }}>
+      <HelpPopover>
+        <p>
+          Withdraw cash from your wallet to an EXTERNAL account (USER_CASH →
+          EXTERNAL). You must own the source account.
+        </p>
+        <p>The "To" field is prefilled with the seeded platform EXTERNAL account.</p>
+      </HelpPopover>
+
       {/* Title — always visible, even when the body is squished shut */}
       <Box>
         <PanelTitle>Withdraw Cash</PanelTitle>

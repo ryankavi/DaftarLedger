@@ -14,6 +14,7 @@ import { ApiError, reopenAccount } from '../api'
 import { useAuth } from '../auth/context'
 import LockedFilm from './LockedFilm'
 import PanelTitle from './PanelTitle'
+import HelpPopover from './HelpPopover'
 
 // Calls POST /api/accounts/{id}/reopen. Any authenticated user may reopen their
 // own frozen account, so it's user-gated (lock film).
@@ -53,6 +54,10 @@ export default function ReopenAccountPanel() {
 
   return (
     <Paper sx={{ p: 3, width: '100%', position: 'relative' }}>
+      <HelpPopover>
+        <p>Reopen a frozen account, returning it to the open state.</p>
+      </HelpPopover>
+
       {/* Title — always visible, even when the body is squished shut */}
       <Box>
         <PanelTitle>Reopen Account</PanelTitle>
