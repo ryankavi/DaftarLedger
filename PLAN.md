@@ -34,12 +34,13 @@ Schema is double-entry ledger. Sum of debits == sum of credits per transaction i
 
 ### Frontend (`frontend/`)
 
-Vite + React 19 + TypeScript + MUI v9 SPA. One panel component per API endpoint (14 total) plus the auth forms, all under `frontend/src/components/`, laid out in a 2-column grid in `App.tsx`.
+Vite + React 19 + TypeScript + MUI v9 SPA. One panel component per API endpoint (14 total) plus the auth forms, all under `frontend/src/components/`, laid out in a 2-column grid in `App.tsx`. A centered metallic-green **"Under the Hood"** button in the top toolbar (`BackendInfoPanel.tsx`, split into `BackendInfoButton` + the dropdown; open state lifted into `App`) drops down a summary of the backend's features and tech stack. The same content, in more detail (descriptive sentence + impact per feature; per-stack-item benefit), lives in `CHEATSHEET.md` at the repo root.
 
 - **Auth context** — `auth/AuthProvider.tsx` + `auth/context.ts` (`useAuth`): holds the bearer token (sessionStorage), exposes `isAuthenticated`, `role` (decoded client-side from the JWT via `auth/jwt.ts` — UI hint only, server re-verifies), `login`/`signup`/`logout`, and a `logoutNonce`. `api.ts` keeps a module-level token (`setAuthToken`) so every request auto-attaches `Authorization`.
 - **API client** — `api.ts`: one typed function per endpoint; `ApiError` carries the HTTP status. Amounts are entered in **dollars** and converted to minor units with `Math.round(value * 100)` before sending.
 - **Per-panel role gating** — each panel computes `expanded` and collapses with a vertical "squish" animation when the caller isn't allowed: most panels = `isAuthenticated` (any token); `AssessFee`/`RefundFee`/`Reverse` = `isAuthenticated && role === 'ADMIN'`; `deposit` = any authenticated. Collapsed panels show a `LockedFilm` (gray film + lock icon for user-gated, shield for admin-only). State resets on login (squish panels) or logout (auth panels) — NOT via remount, so the close animation can play (`App.tsx` is deliberately not keyed on `logoutNonce`).
 - **Shared UI** — `PanelTitle` (bold Poppins heading), `LockedFilm` (lock/shield overlay), `HelpPopover` (top-right `?` button → popover; per-panel help text is `<p>` children — **the user is actively rewriting these**, don't clobber their wording). Text fields use MUI `standard` variant with leading icons. `platformAccounts.ts` holds the seeded platform UUIDs and prefills the EXTERNAL/FEE_REVENUE fields.
+- **`ClearableTextField`** — drop-in wrapper for MUI `TextField` used by every text input (all panels) **except** the account-type `select` in `CreateAccountPanel` (clearing a Select to `''` breaks its controlled value). Renders a small `×` at the right edge when the field has content; clears by dispatching an empty-value change through the field's own `onChange` (no `onClear` prop needed) and **preserves any existing end adornment** (password show/hide toggle, idempotency-key randomize button) by rendering the `×` to its left.
 - **Typecheck** — the project uses TS **project references**, so the real check is **`tsc -b`** (run from `frontend/`). A plain `tsc --noEmit` resolves the empty solution `tsconfig.json` and silently passes — don't trust it.
 
 ---
@@ -109,11 +110,14 @@ The auth slice is enforced end to end: `signup`/`login` issue HS256 tokens, `aut
 
 **Out of scope (unchanged):** stateless access token only — no refresh, no revocation (a stolen token is valid until `exp`, hence the short **15m** TTL). Refresh tokens + a denylist (or server-side sessions), rate limiting, CORS, request-logging middleware, WebSocket/SSE — all later work. (OpenAPI now exists — `openapi.yaml`, mirrored by `frontend/src/types.ts`; keep them in sync.)
 
-### Frontend / demo next steps
+### Deployment + demo next steps
 
+The frontend demo is **feature-complete**: every endpoint has a panel, balances render in dollars, every input has a clear button, and the "Under the Hood" dropdown documents the backend. **The one remaining piece of real work is deploying to AWS.**
+
+- **Deploy to AWS (the remaining item).** Stand up the Go service + a Postgres instance and serve the built frontend behind CloudFront — the whole API is mounted under `/api` (handler patterns are prefix-free via `http.StripPrefix`), so a CloudFront `/api/*` behavior reaches the server directly. Provide the required env (see committed `.env.example`): `DATABASE_URL`, `JWT_SECRET` (**fatal if unset**), and optionally `TOKEN_TTL`, `SHUTDOWN_TIME`, and the `BOOTSTRAP_ADMIN_EMAIL` + `BOOTSTRAP_ADMIN_PASSWORD` pair (both-or-neither). Migration 000007 seeds the platform accounts on startup; confirm they land in the deploy DB and that the prefilled EXTERNAL/FEE_REVENUE ids resolve against real rows.
 - **Help text (in progress).** The user is rewriting every `HelpPopover` body (`<p>` paragraphs, one per panel). Don't overwrite their wording — only touch `HelpPopover.tsx` for structural/style changes.
-- **Balance display in dollars.** `AccountBalancePanel` still renders the raw minor-units integer from the API; divide by 100 (2 dp) so it matches the dollar-input convention used everywhere else.
-- **Deploy.** Migration 000007 seeds the platform accounts on startup; confirm they land in the deploy DB and that the prefilled EXTERNAL/FEE_REVENUE ids resolve against real rows.
+- **Balance display in dollars.** ✅ Done — `AccountBalancePanel` divides by 100 and renders `$X.XX`; dropped the "(minor units)" suffix.
+- **Clear buttons + backend showcase.** ✅ Done — `ClearableTextField` (`×` on every input), `BackendInfoPanel` (metallic-green "Under the Hood" dropdown), and `CHEATSHEET.md` (long-form feature/stack notes).
 - **(Optional) ownerless platform accounts.** Replace the system-user-owner seed workaround by making `accounts.owner_id` nullable for platform types and dropping the system user. Bigger migration — defer until it matters.
 
 ---
