@@ -15,6 +15,7 @@ import AssessFeePanel from './components/AssessFeePanel'
 import RefundFeePanel from './components/RefundFeePanel'
 import ReversePanel from './components/ReversePanel'
 import DepositPanel from './components/DepositPanel'
+import BackendInfoPanel from './components/BackendInfoPanel'
 import TokenStatus from './components/TokenStatus'
 import { useAuth } from './auth/context'
 
@@ -36,6 +37,9 @@ export default function App() {
           Log out
         </Button>
       </Stack>
+
+      {/* Centered drop-down summarizing the backend's features + tech stack. */}
+      <BackendInfoPanel />
 
       {/* 2-column grid of fixed-width columns, centered as a group so the only
           gap between panels is `gap` (not half the viewport). Default row-major
