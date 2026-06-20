@@ -4,6 +4,31 @@ Fresh-Claude brief. Read `CLAUDE.md` first for repo-wide conventions; this file 
 
 ---
 
+## Deployment (AWS) — read before deploying
+
+**Target topology:** frontend static build in an **S3** bucket, Go backend on an **EC2** instance, Postgres **on that same EC2** (Docker), all fronted by a single **CloudFront** distribution. CloudFront serves S3 at `/` and EC2 at `/api/*`, so the browser sees **one origin**.
+
+**Why this works with the current code (decisions already baked in — don't undo them):**
+
+- `frontend/src/api.ts` uses `API_BASE = '/api'` (**relative**). Same-origin via CloudFront ⇒ **no CORS needed**, and the build is environment-agnostic (no API host to bake in). The backend deliberately sets **no CORS headers** — this is correct *only* while everything is one origin. If you ever call EC2 on a different origin (e.g. hit it directly), auth/preflight will break until you add CORS.
+- Whole API is mounted under `/api` via `http.StripPrefix`, so a CloudFront `/api/*` behavior maps straight onto the handlers (patterns stay prefix-free).
+- Config is env-driven (`main.go` + `.env.example`); migrations run on startup; graceful shutdown is wired.
+- `vite.config.ts` proxy is **dev-only** — irrelevant in prod (CloudFront does the routing). Don't try to "fix" it for prod.
+
+**⚠️ Caveats that will silently break the app if missed:**
+
+1. **CloudFront must forward the `Authorization` header to the EC2 origin on `/api/*`.** Default behavior **strips it** ⇒ every authenticated request 401s. Use **Origin Request Policy = `AllViewerExceptHostHeader`**.
+2. **Disable caching on `/api/*`** (Cache Policy = `CachingDisabled`) — otherwise POST results / balances get cached and served stale.
+3. **Allow all HTTP methods on the `/api/*` behavior** (GET, POST, OPTIONS, …). CloudFront's default allows only GET/HEAD ⇒ transfers/deposits (POST) are blocked.
+4. **Migrations use a RELATIVE path** — `internal/db/db.go` loads `file://migrations`. The service **must be started from a directory that contains the `migrations/` folder**, or startup migrations fail and the process exits. On EC2: deploy the built binary **and** the `migrations/` dir together, and set the systemd unit's `WorkingDirectory` accordingly. (Run `go build`, run under **systemd**/Docker with restart-on-failure — not `go run`.)
+5. **`JWT_SECRET` is mandatory** — the server calls `log.Fatalf` if it's empty. Set a strong random value on the host (`openssl rand -base64 48`). `BOOTSTRAP_ADMIN_EMAIL`/`_PASSWORD` is both-or-neither (fatal if only one).
+6. **Never expose Postgres (5433) to the internet.** Bind it to localhost; the Go app connects over `localhost:5433` on the same box, so 5433 stays out of the security group entirely. Lock the EC2 security group so only CloudFront reaches `:8080` (restrict to CloudFront's managed prefix list, or front with nginx).
+7. **S3 stays private** — serve it via CloudFront **OAC**, set default root object `index.html`.
+
+**Postgres-on-EC2 decision (accepted for the demo):** cheapest, simplest, lowest latency (localhost). Run it in Docker with a **named volume on persistent EBS** + `--restart unless-stopped` so it survives reboots. Trade-off: **no managed backups / patching / failover, and data dies with the EBS volume if the instance is terminated without a snapshot.** Acceptable for a demo. Upgrade path = **RDS** with zero code change — just point `DATABASE_URL` at the RDS endpoint.
+
+---
+
 ## Current state
 
 - `internal/db/` — bootstrap only (`SetUpDB`: ping + run migrations). No queries here.
