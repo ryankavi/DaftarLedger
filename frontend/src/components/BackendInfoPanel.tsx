@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Collapse from '@mui/material/Collapse'
@@ -81,50 +80,51 @@ const TECH = [
   'godotenv',
 ]
 
-// Centered top-of-page button that drops down a metallic-green panel summarizing
-// what the Go backend actually does, with the tech stack as bubbles at the bottom.
-export default function BackendInfoPanel() {
-  const [open, setOpen] = useState(false)
-
+// Metallic-green toggle button. Lives in the top toolbar row alongside the token
+// status + log-out controls; `open`/`onToggle` are owned by App so the dropdown
+// (below) can render in a separate place in the layout.
+export function BackendInfoButton({
+  open,
+  onToggle,
+}: {
+  open: boolean
+  onToggle: () => void
+}) {
   return (
-    <Box
+    <Button
+      onClick={onToggle}
+      variant="contained"
+      startIcon={<MemoryOutlinedIcon />}
+      endIcon={
+        <ExpandMoreIcon
+          sx={{
+            transform: open ? 'rotate(180deg)' : 'none',
+            transition: 'transform 0.2s ease',
+          }}
+        />
+      }
       sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        px: 2,
-        pb: 2,
+        ...metallicGreen,
+        color: '#0d0d0d',
+        fontWeight: 700,
+        px: 2.5,
+        borderRadius: 2,
+        border: '1px solid rgba(255,255,255,0.3)',
+        boxShadow:
+          'inset 0 1px 0 rgba(255,255,255,0.5), 0 4px 14px rgba(0,0,0,0.4)',
+        '&:hover': { ...metallicGreen, filter: 'brightness(1.06)' },
       }}
     >
-      <Button
-        onClick={() => setOpen((o) => !o)}
-        variant="contained"
-        size="large"
-        startIcon={<MemoryOutlinedIcon />}
-        endIcon={
-          <ExpandMoreIcon
-            sx={{
-              transform: open ? 'rotate(180deg)' : 'none',
-              transition: 'transform 0.2s ease',
-            }}
-          />
-        }
-        sx={{
-          ...metallicGreen,
-          color: '#0d0d0d',
-          fontWeight: 700,
-          px: 3,
-          py: 1.2,
-          borderRadius: 2,
-          border: '1px solid rgba(255,255,255,0.3)',
-          boxShadow:
-            'inset 0 1px 0 rgba(255,255,255,0.5), 0 4px 14px rgba(0,0,0,0.4)',
-          '&:hover': { ...metallicGreen, filter: 'brightness(1.06)' },
-        }}
-      >
-        What the backend does
-      </Button>
+      What the backend does
+    </Button>
+  )
+}
 
+// The drop-down summary panel: backend features as tiles, tech stack as bubbles.
+// Rendered full-width and centered below the toolbar; visibility driven by `open`.
+export default function BackendInfoPanel({ open }: { open: boolean }) {
+  return (
+    <Box sx={{ display: 'flex', justifyContent: 'center', px: 2, pb: 2 }}>
       <Collapse in={open} sx={{ width: '100%', maxWidth: 940 }}>
         <Paper
           elevation={0}
