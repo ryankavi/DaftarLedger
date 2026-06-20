@@ -9,6 +9,7 @@ import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
+import ClearableTextField from './ClearableTextField'
 import Typography from '@mui/material/Typography'
 import CategoryOutlinedIcon from '@mui/icons-material/CategoryOutlined'
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney'
@@ -164,7 +165,7 @@ export default function CreateAccountPanel() {
               </MenuItem>
             ))}
           </TextField>
-          <TextField
+          <ClearableTextField
             variant="standard"
             label="Currency"
             value={currency}

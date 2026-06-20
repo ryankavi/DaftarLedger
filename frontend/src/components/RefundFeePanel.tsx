@@ -8,7 +8,7 @@ import IconButton from '@mui/material/IconButton'
 import InputAdornment from '@mui/material/InputAdornment'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
-import TextField from '@mui/material/TextField'
+import ClearableTextField from './ClearableTextField'
 import Typography from '@mui/material/Typography'
 import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined'
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined'
@@ -127,7 +127,7 @@ export default function RefundFeePanel() {
       >
         <Stack spacing={2} sx={{ mt: 2 }}>
           {/* Inputs */}
-          <TextField
+          <ClearableTextField
             variant="standard"
             label="From account (FEE_REVENUE)"
             value={fromAccountId}
@@ -144,7 +144,7 @@ export default function RefundFeePanel() {
               },
             }}
           />
-          <TextField
+          <ClearableTextField
             variant="standard"
             label="To account (USER_CASH)"
             value={toAccountId}
@@ -162,7 +162,7 @@ export default function RefundFeePanel() {
           />
           {/* Currency (short, $ icon) + Amount side by side */}
           <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-end' }}>
-            <TextField
+            <ClearableTextField
               variant="standard"
               label="Currency"
               value={currency}
@@ -179,7 +179,7 @@ export default function RefundFeePanel() {
                 htmlInput: { maxLength: 3 },
               }}
             />
-            <TextField
+            <ClearableTextField
               variant="standard"
               label="Amount (dollars)"
               type="number"
@@ -189,7 +189,7 @@ export default function RefundFeePanel() {
               slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
             />
           </Stack>
-          <TextField
+          <ClearableTextField
             variant="standard"
             label="Idempotency key"
             value={idempotencyKey}

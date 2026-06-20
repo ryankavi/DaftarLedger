@@ -6,7 +6,7 @@ import IconButton from '@mui/material/IconButton'
 import InputAdornment from '@mui/material/InputAdornment'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
-import TextField from '@mui/material/TextField'
+import ClearableTextField from './ClearableTextField'
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined'
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
 import Visibility from '@mui/icons-material/Visibility'
@@ -87,7 +87,7 @@ export default function LoginForm() {
             <PanelTitle>Request Auth Token</PanelTitle>
           </Stack>
           {error && <Alert severity="error">{error}</Alert>}
-          <TextField
+          <ClearableTextField
             variant="standard"
             label="Email"
             type="email"
@@ -106,7 +106,7 @@ export default function LoginForm() {
               },
             }}
           />
-          <TextField
+          <ClearableTextField
             variant="standard"
             label="Password"
             type={showPassword ? 'text' : 'password'}

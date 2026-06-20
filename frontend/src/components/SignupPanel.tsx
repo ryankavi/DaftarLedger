@@ -8,7 +8,7 @@ import IconButton from '@mui/material/IconButton'
 import InputAdornment from '@mui/material/InputAdornment'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
-import TextField from '@mui/material/TextField'
+import ClearableTextField from './ClearableTextField'
 import Typography from '@mui/material/Typography'
 import Visibility from '@mui/icons-material/Visibility'
 import VisibilityOff from '@mui/icons-material/VisibilityOff'
@@ -104,7 +104,7 @@ export default function SignupPanel() {
         </Box>
 
         {/* Inputs */}
-        <TextField
+        <ClearableTextField
           variant="standard"
           label="Email"
           type="email"
@@ -121,7 +121,7 @@ export default function SignupPanel() {
             },
           }}
         />
-        <TextField
+        <ClearableTextField
           variant="standard"
           label="Password"
           type={showPassword ? 'text' : 'password'}
@@ -155,7 +155,7 @@ export default function SignupPanel() {
             },
           }}
         />
-        <TextField
+        <ClearableTextField
           variant="standard"
           label="Currency"
           value={currency}

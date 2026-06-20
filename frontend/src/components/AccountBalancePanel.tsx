@@ -7,7 +7,7 @@ import CircularProgress from '@mui/material/CircularProgress'
 import InputAdornment from '@mui/material/InputAdornment'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
-import TextField from '@mui/material/TextField'
+import ClearableTextField from './ClearableTextField'
 import Typography from '@mui/material/Typography'
 import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined'
 import ScheduleOutlinedIcon from '@mui/icons-material/ScheduleOutlined'
@@ -97,7 +97,7 @@ export default function AccountBalancePanel() {
       >
         <Stack spacing={2} sx={{ mt: 2 }}>
           {/* Inputs */}
-          <TextField
+          <ClearableTextField
             variant="standard"
             label="Account ID"
             value={accountId}
@@ -113,7 +113,7 @@ export default function AccountBalancePanel() {
               },
             }}
           />
-          <TextField
+          <ClearableTextField
             variant="standard"
             label="As of (optional)"
             value={asOf}
