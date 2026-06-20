@@ -60,7 +60,7 @@ export default function AccountBalancePanel() {
     <Paper sx={{ p: 3, width: '100%', position: 'relative' }}>
       <HelpPopover>
         <p>
-          Look up an account's net balance in minor units. Optionally pass an
+          Look up an account's net balance. Optionally pass an
           "as of" timestamp to see the balance at a point in time.
         </p>
       </HelpPopover>
@@ -75,7 +75,7 @@ export default function AccountBalancePanel() {
           </Typography>
         </Stack>
         <Typography variant="caption" color="text.secondary">
-          Net balance in minor units, optionally as of a timestamp
+          Net balance of account, optionally as of a timestamp
         </Typography>
       </Box>
 
@@ -139,7 +139,9 @@ export default function AccountBalancePanel() {
           )}
           {error && <Alert severity="error">{error}</Alert>}
           {result && !busy && (
-            <Alert severity="success">Balance: {result.balance} (minor units)</Alert>
+            <Alert severity="success">
+              Balance: ${(result.balance / 100).toFixed(2)}
+            </Alert>
           )}
 
           {/* Execute */}

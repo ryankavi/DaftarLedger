@@ -69,9 +69,17 @@ export default function LoginForm() {
       >
         <HelpPopover>
           <p>
-            Log in with your email and password to receive a bearer token. The
-            token authorizes every other panel — once you have one, the glow
-            stops and the panels unlock.
+            Log in with your email and password to receive a jwt auth bearer token. The
+            authenticated user role will unlock the corresponding api endpoints.
+          </p>
+          <p>
+            The email and password combo is verified by the service, at which point
+            the application authenticator issues an expiring signed jwt auth bearer token.
+          </p>
+          <p>
+            Every server route handler, outside of the two public routes (login and signup),
+            passes through middleware which pulls the user role through the context
+            and authorizes the user.
           </p>
         </HelpPopover>
         <Stack component="form" spacing={3} onSubmit={handleSubmit}>

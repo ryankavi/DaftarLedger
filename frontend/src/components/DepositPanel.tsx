@@ -92,6 +92,10 @@ export default function DepositPanel() {
           "From" field is prefilled with the seeded platform EXTERNAL account.
         </p>
         <p>Enter your wallet's account id and a dollar amount, then send.</p>
+        <p>Note: In a real world scenario, deposits can only be made by established
+          external accounts. I designed this app to use a system account as a
+          logical replacement.
+        </p>
       </HelpPopover>
 
       {/* Title — always visible, even when the body is squished shut */}

@@ -21,8 +21,5 @@ var (
 	ErrEmailTaken          = errors.New("email already registered")
 	ErrAccountTypeExists   = errors.New("user already has an account of this type")
 	ErrForbidden           = errors.New("user operation forbidden")
-	// ErrInvalidCredentials is the single error returned for both an unknown
-	// email and a wrong password, so the login API can't be used to enumerate
-	// which emails are registered. Its message is safe to show the client.
-	ErrInvalidCredentials = errors.New("invalid email or password")
+	ErrInvalidCredentials  = errors.New("invalid email or password")
 )

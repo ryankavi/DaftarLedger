@@ -95,8 +95,16 @@ export default function CreateAccountPanel() {
     <Paper sx={{ p: 3, width: '100%', position: 'relative' }}>
       <HelpPopover>
         <p>
-          Create an account owned by you. Regular users can open a USER_CASH
-          wallet; admins provision the platform account types.
+          Create an account owned by the authenticated user.
+        </p>
+        <p>
+          The nature of this endpoint depends on the nature of the end product
+          the ledger is used for.
+        </p>
+        <p>
+          I geared the ledger towards a payment processing platform. Since every
+          user only has 1 USER_CASH account, which is created upon user signup, this
+          endpoint is almost redundant (system accounts are bootstrapped).
         </p>
       </HelpPopover>
 
