@@ -23,6 +23,8 @@ servers:
     description: API root (mounted under /api via StripPrefix)
 
 tags:
+  - name: Health
+    description: Unauthenticated liveness probe.
   - name: Auth
     description: Signup and login — the only public routes.
   - name: Accounts
@@ -31,6 +33,17 @@ tags:
     description: Ledger postings. Each creates a balanced debit/credit pair.
 
 paths:
+  /health:
+    get:
+      tags: [Health]
+      operationId: health
+      summary: Liveness probe
+      description: Public. Returns `200` with an empty body if the HTTP server is up. Checks no dependencies (not the DB) — it is liveness, not readiness.
+      security: []
+      responses:
+        '200':
+          description: Service is up.
+
   /signup:
     post:
       tags: [Auth]

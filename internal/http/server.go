@@ -38,6 +38,7 @@ func (s *Server) routes() {
 	api := http.NewServeMux()
 
 	// Public routes — reachable without a token.
+	api.HandleFunc("GET /health", s.health)
 	api.HandleFunc("POST /signup", s.signup)
 	api.HandleFunc("POST /login", s.login)
 

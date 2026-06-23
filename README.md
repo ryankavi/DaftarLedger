@@ -308,3 +308,7 @@ The HTTP surface is described in [`openapi.yaml`](./openapi.yaml) (mirrored by
 `frontend/src/types.ts`). Paste it into the [Swagger editor](https://editor.swagger.io/)
 to browse. All routes are served under `/api` (e.g. `POST /api/signup`,
 `POST /api/transactions/transfer`, `GET /api/accounts/{id}/balance`).
+
+`GET /api/health` is an unauthenticated liveness probe — it returns `200` with
+an empty body if the server is up, and checks no dependencies (liveness, not
+readiness). It sits under `/api` so it stays reachable through CloudFront.
