@@ -20,5 +20,6 @@ go.work
 go.work.sum
 
 notes.md
+ledger
 .claude/
 .vscode/
