@@ -82,7 +82,11 @@ func main() {
 	defer stop()
 
 	srv := httpapi.NewServer(database, logger, authenticator)
-	if err := srv.Run(ctx, ":8080", SHUTDOWN_TIMEOUT); err != nil && !errors.Is(err, context.Canceled) {
+	addr := os.Getenv("LISTEN_ADDR")
+	if addr == "" {
+		addr = "127.0.0.1:8080" // safe default: loopback only
+	}
+	if err := srv.Run(ctx, addr, SHUTDOWN_TIMEOUT); err != nil && !errors.Is(err, context.Canceled) {
 		log.Fatalf("http run: %s", err)
 	}
 }
