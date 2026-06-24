@@ -16,7 +16,10 @@ import AssessFeePanel from './components/AssessFeePanel'
 import RefundFeePanel from './components/RefundFeePanel'
 import ReversePanel from './components/ReversePanel'
 import DepositPanel from './components/DepositPanel'
-import BackendInfoPanel, { BackendInfoButton } from './components/BackendInfoPanel'
+import BackendInfoPanel, {
+  BackendInfoButton,
+} from './components/BackendInfoPanel'
+import Header from './components/Header'
 import TokenStatus from './components/TokenStatus'
 import { useAuth } from './auth/context'
 
@@ -41,7 +44,9 @@ export default function App() {
           p: 2,
         }}
       >
-        <Box />
+        <Box sx={{ justifySelf: 'start' }}>
+          <Header />
+        </Box>
         <Box sx={{ justifySelf: 'center' }}>
           <BackendInfoButton
             open={backendOpen}
